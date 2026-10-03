@@ -43,6 +43,8 @@ _MINOR = (0, 2, 3, 5, 7, 8, 10)
 _MAJOR_PROG = (0, 4, 5, 3)
 _MINOR_PROG = (0, 5, 2, 6)
 _KEY_RE = re.compile(r"^\s*([A-Ga-g])\s*([#b♯♭]?)\s*(.*)$")
+# How far below the peak level the quietest sections sit. The analyzer's energy scale spans 30 dB.
+DYNAMICS_DB = 20.0
 # Section labels nudge the arrangement density around the energy curve.
 _SECTION_GAIN = (
     ("intro", -0.18), ("outro", -0.22), ("resolution", -0.14), ("release", -0.10),
@@ -266,6 +268,12 @@ def _render(req: MusicGenerationRequest, seed: int) -> tuple[np.ndarray, dict]:
         b = int(np.argmin(np.abs(downbeats - p)))
         root = chord_for_bar.get(b, [48 + pc])[0]
         _add(out, int(round(p * SR)), _pluck(_freq(root + 24), min(bar, 1.6), bright=1.6) * 0.26)
+
+    # Dynamics: the layers above only change *density*, and a kick on every beat keeps the measured level
+    # flat. Follow the energy curve in level too, so a sparse intro is audibly and measurably quieter.
+    lvl = np.clip((e - 0.22) / 0.78, 0.0, 1.0)
+    env_db = -DYNAMICS_DB * (1.0 - np.interp(np.arange(len(out)) / SR, beat_times, lvl))
+    out *= 10 ** (env_db / 20)
 
     out = out[:n]
     fi = min(int(0.25 * SR), n // 8)

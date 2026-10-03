@@ -241,3 +241,17 @@ def test_generate_music_refuses_to_clobber_without_force(settings, direction, an
     assert dest.read_bytes() == b"keep me"
     generate_music(settings, direction, analysis, provider="procedural", dest=dest, duration=6.0, force=True)
     assert dest.read_bytes()[:4] == b"RIFF"
+
+
+def test_measured_energy_follows_the_requested_arc(provider, settings, tmp_path):
+    """A sparse intro must be measurably quieter than the peak, not just sparser on paper."""
+    req = make_req(
+        duration=24.0, bpm=91.0, seed=7, peaks=(11.0,), structure=["build", "peak", "resolution"],
+        energy_curve=[(0.0, 0.14), (11.0, 0.24), (11.0, 0.79), (17.0, 0.67), (17.0, 0.14), (24.0, 0.1)],
+    )
+    feats = provider.generate(req, settings, tmp_path / "arc.wav").candidate.features
+    assert feats is not None
+    curve = feats.energy_curve
+    mean = lambda lo, hi: sum(e for t, e in curve if lo <= t < hi) / max(1, sum(1 for t, _ in curve if lo <= t < hi))  # noqa: E731
+    intro, peak, outro = mean(0, 10), mean(12, 17), mean(18, 24)
+    assert peak - intro > 0.3 and peak - outro > 0.3, f"intro {intro:.2f}, peak {peak:.2f}, outro {outro:.2f}"
