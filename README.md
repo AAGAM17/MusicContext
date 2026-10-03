@@ -2,6 +2,10 @@
 
 **Music intelligence for AI agents.**
 
+[![CI](https://github.com/AAGAM17/MusicContext/actions/workflows/ci.yml/badge.svg)](https://github.com/AAGAM17/MusicContext/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)
+
 AI agents can generate remarkable video. They still make poor music decisions — a generic loop at the wrong tempo,
 mood-matched by vibe alone, indifferent to the cut rhythm, deaf to the voiceover, peaking nowhere near the reveal,
 and ending mid-phrase.
@@ -16,9 +20,10 @@ It is a local-first CLI, MCP server, Python SDK and Agent Skill. It analyses wha
 it *needs*, finds or generates that music, and mixes it in — and it tells you which of those conclusions it
 measured and which it guessed.
 
-> **Status: 0.1.0, pre-1.0.** Everything documented below is implemented and tested, with one exception that is
-> called out explicitly: Codex support is **unverified** (see [Codex](#codex)). The honest limits of each estimator
-> are listed in [What MusicContext knows vs. guesses](#what-musiccontext-knows-vs-guesses).
+> **Status: 0.1.0, pre-1.0.** Everything documented below is implemented and tested, with two exceptions that are
+> called out explicitly: Codex support is **unverified** (see [Codex](#codex)), and the Docker image has **never been
+> built** (see [`docs/deployment`](docs/deployment/README.md)). The honest limits of each estimator are listed in
+> [What MusicContext knows vs. guesses](#what-musiccontext-knows-vs-guesses).
 
 ---
 
@@ -72,14 +77,14 @@ The core engine knows nothing about any specific model, vendor or catalogue. Pro
 Requires **Python 3.11+** and **FFmpeg 6+** (`ffmpeg` and `ffprobe` on `PATH`).
 
 ```bash
-pipx install "musiccontext[agent] @ git+https://github.com/<OWNER>/MusicContext"
+pipx install "musiccontext[agent] @ git+https://github.com/AAGAM17/MusicContext"
 musiccontext doctor
 ```
 
 From a checkout:
 
 ```bash
-git clone https://github.com/<OWNER>/MusicContext && cd MusicContext
+git clone https://github.com/AAGAM17/MusicContext && cd MusicContext
 make install && make fixtures && make test
 ```
 
@@ -112,34 +117,38 @@ musiccontext generate demo.mp4         # synthesize a track that follows the pla
 
 ## What the output looks like
 
-`musiccontext plan` on a 24 s demo with narration, told the reveal is at 11.0 s:
+`musiccontext plan demo.mp4 --marker 11.0=reveal --platform product-demo --vocals none` on a 24 s synthesized demo
+with narration (real output, trimmed):
 
 ```
 Music direction  (confidence 0.60)
   minimal · confident, premium, curious · instrumental
   tempo            91 BPM (80-102)
-  energy           ███▌              0.28
+  energy           █████▁             0.28
   rhythm           sparse · texture dry/spacious
   instruments      piano, soft_pads, subtle_percussion
   avoid            vocals, lead_vocal, busy_lead_melody, distorted_guitar
 
 Arc
-     0.0-11.0   intro                  ██▏          0.14  atmospheric, sparse opening
-    11.0-17.0   peak                   ███████████  0.74  full arrangement; the main hit lands on the payoff
-    17.0-24.0   resolution             ██▏          0.13  ease off into a clear resolution
+     0.0-11.0   build                  █▆           0.14  rising layers and rhythmic density leading to the payoff
+    11.0-17.0   peak                   █████████    0.74  full arrangement; the main hit lands exactly on the payoff
+    17.0-24.0   resolution             █▆           0.14  ease off into a clear resolution / call to action
+  peak             11.0s · ending: resolve
+  ducking          -12 dB under speech (bed -3 dB)
 
 Key moments
-     2.0s  voiceover_start   duck             [estimated]
-    11.0s  reveal            peak             [user]
-    17.0s  cta               resolve          [inferred]
-    24.0s  ending            resolve          [detected]
+      2.0s  voiceover_start   duck             [estimated] Speech begins; music should make space
+     11.0s  reveal            peak             [user]      Supplied by the user/agent: reveal at 11.00s
+     17.0s  cta               resolve          [inferred]  Closing section after the peak; possible call to action
+     17.0s  hard_cut          none             [detected]  Hard cut (scene score 0.86)
+     24.0s  ending            resolve          [detected]  End of video
 
 Why
   - visual pacing is moderate (median scene 6.0s, 7.5 cuts/min)
   - voiceover covers 48% of the video (favours minimal)
   - voiceover covers 48%: tempo capped near 108 BPM so rhythm does not fight speech
-  - peak/reveal at 11.0s (user marker); target energy rises to 0.74 there
-  confidence: heuristic analysis only (no vision model): scene roles are inferences;
+  - platform preset range 90-125 BPM applied
+  confidence: heuristic analysis only (no vision model): scene roles and the reveal are inferences;
   user markers anchor key moments; speech timing is a heuristic estimate
 ```
 
@@ -148,6 +157,19 @@ distinction survives into the JSON, so an agent can report it to the user instea
 false confidence.
 
 With `--json`, every command emits a bounded, machine-readable document.
+
+### Plan, then proof
+
+Then `musiccontext generate` and `musiccontext sync` on the same video. The generated track is measured with the same
+analyzer used on any other track, so the picture below compares the *plan* to what actually came out, not to what was
+requested:
+
+![The plan, the narration and ducking, and the measured energy of the generated track on a 24 s demo. The measured downbeat is 3 ms from the 11.0 s reveal.](docs/assets/demo-timeline.png)
+
+The requested tempo was 91.1 BPM and the analyzer measured 90.8. The reveal was requested at 11.000 s and the
+nearest measured downbeat is at 11.003 s. The generator is a synthesizer: it follows tempo, key, energy and peak
+time faithfully, but it is not a composer. Use it as a reference bed, or hand the plan's brief to a human or a
+generation service.
 
 ## What MusicContext knows vs. guesses
 
@@ -362,11 +384,12 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) — especially the rule that nothing ma
 
 ## Documentation
 
-- [`docs/architecture/`](docs/architecture/) — the pipeline and the data model
-- [`docs/agents/`](docs/agents/) — Claude Code, Codex (status), MCP
-- [`docs/providers/`](docs/providers/) — using and writing providers
-- [`docs/workflows/`](docs/workflows/) — worked end-to-end scenarios
-- [`docs/deployment/`](docs/deployment/) — local, Docker, cloud
+- [`docs/`](docs/README.md) — index
+- [`docs/architecture/`](docs/architecture/pipeline.md) — the pipeline and [the data model](docs/architecture/data-model.md)
+- [`docs/agents/`](docs/agents/claude-code.md) — Claude Code, [Codex (status)](docs/agents/codex.md), [MCP](docs/agents/mcp.md)
+- [`docs/providers/`](docs/providers/using-providers.md) — using and [writing](docs/providers/writing-a-provider.md) providers
+- [`docs/workflows/`](docs/workflows/README.md) — worked end-to-end scenarios
+- [`docs/deployment/`](docs/deployment/README.md) — local, CI, container (container unverified)
 - [`skills/musiccontext/`](skills/musiccontext/) — the Agent Skill itself
 - [`ROADMAP.md`](ROADMAP.md) · [`CHANGELOG.md`](CHANGELOG.md)
 

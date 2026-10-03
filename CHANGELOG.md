@@ -6,6 +6,28 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Documentation under `docs/` (architecture, data model, Claude Code, Codex status, MCP, providers, workflows,
+  deployment) and `examples/` (an offline end-to-end `demo.sh`, a sample transcript and license sidecar).
+- `CODE_OF_CONDUCT.md`, issue and pull-request templates, README badges and a plan-vs-measured figure.
+- Project URLs and Python version classifiers in `pyproject.toml`.
+
+### Changed
+
+- The procedural generator now follows the requested energy curve in *level* as well as density (a 20 dB range). On
+  the demo clip the measured section energy went from 0.65 / 0.76 / 0.66 to 0.16 / 0.66 / 0.17 against a plan of
+  0.14 / 0.74 / 0.14; tempo and peak placement are unchanged. A regression test pins it.
+- `recommend` no longer says "no candidate music is available" when the library has tracks that were filtered or
+  excluded; it says what was searched for and why nothing passed.
+- `ruff` and `mypy` are clean and now block CI (they were advisory).
+
+### Fixed
+
+- Repository URLs in the README, manifests, changelog and `SECURITY.md` pointed at a placeholder owner.
+- `SECURITY.md` referred to maintainer emails that `CONTRIBUTING.md` never listed; reporting is via GitHub Security
+  Advisories.
+
 ## [0.1.0] - 2026-10-03
 
 First public release. Pre-1.0: interfaces may still change, and the `.musicctx` artifact is at format version 1.0.
@@ -66,5 +88,5 @@ First public release. Pre-1.0: interfaces may still change, and the `.musicctx` 
 - Only the local library and the offline `procedural` generator ship as working providers. Everything else is a
   documented template that a user must configure.
 
-[Unreleased]: https://github.com/<OWNER>/MusicContext/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/<OWNER>/MusicContext/releases/tag/v0.1.0
+[Unreleased]: https://github.com/AAGAM17/MusicContext/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/AAGAM17/MusicContext/releases/tag/v0.1.0
