@@ -6,7 +6,7 @@ feature count.
 ## Getting set up
 
 ```bash
-git clone https://github.com/<OWNER>/MusicContext && cd MusicContext
+git clone https://github.com/AAGAM17/MusicContext && cd MusicContext
 make install          # uv venv + editable install with dev extras
 make fixtures         # synthesize the deterministic test media (needs ffmpeg)
 make test

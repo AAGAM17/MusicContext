@@ -5,10 +5,10 @@
   "notes": "Codex support is UNVERIFIED in this build. This manifest mirrors the Claude Code plugin (same ./skills directory, same `musiccontext mcp` stdio server) and has only been checked for valid JSON, not against a published Codex plugin schema.",
   "author": {
     "name": "MusicContext contributors",
-    "url": "https://github.com/<OWNER>/MusicContext"
+    "url": "https://github.com/AAGAM17/MusicContext"
   },
-  "homepage": "https://github.com/<OWNER>/MusicContext",
-  "repository": "https://github.com/<OWNER>/MusicContext",
+  "homepage": "https://github.com/AAGAM17/MusicContext",
+  "repository": "https://github.com/AAGAM17/MusicContext",
   "license": "Apache-2.0",
   "keywords": [
     "music",

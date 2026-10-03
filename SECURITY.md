@@ -4,8 +4,8 @@ MusicContext processes untrusted media and talks to third-party providers. Both 
 
 ## Reporting a vulnerability
 
-Please report security issues privately via GitHub Security Advisories on `https://github.com/<OWNER>/MusicContext`
-("Report a vulnerability"), or by email to the maintainers listed in `CONTRIBUTING.md`. Do not open a public issue
+Please report security issues privately via GitHub Security Advisories on `https://github.com/AAGAM17/MusicContext`
+("Report a vulnerability"). Do not open a public issue
 for an exploitable bug.
 
 Include: the version (`musiccontext --version`), the platform, a minimal reproduction, and what you observed. Please
