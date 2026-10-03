@@ -1,0 +1,45 @@
+### Python
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+pip-wheel-metadata/
+
+### Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+### Generated fixtures and artifacts
+tests/_fixtures/
+*.musicctx
+
+### Generated audio/video output. All media here is synthesized by FFmpeg at test or
+### benchmark time, never committed. Force-add with `git add -f` if that ever changes.
+*.mp4
+*.mov
+*.mkv
+*.webm
+*.wav
+*.mp3
+*.flac
+*.m4a
+*.ogg
+*.srt
+*.vtt
+
+### Local config and editor/OS noise
+.env
+.env.*
+!.env.example
+.DS_Store
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "musiccontext": {
+      "command": "musiccontext",
+      "args": [
+        "mcp"
+      ],
+      "env": {}
+    }
+  }
+}

@@ -1,0 +1,42 @@
+# Build context trimming. The Dockerfile builds a wheel, so only src/ and the
+# packaging metadata actually matter.
+.git
+.gitignore
+.github
+docs
+benchmarks
+examples
+tests/_fixtures
+
+.venv
+venv
+env
+__pycache__
+*.py[cod]
+*.egg-info
+dist
+build
+
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+htmlcov
+
+# Generated media and artifacts must never bloat the image.
+*.musicctx
+*.mp4
+*.mov
+*.mkv
+*.webm
+*.wav
+*.mp3
+*.flac
+*.m4a
+*.ogg
+
+.DS_Store
+.idea
+.vscode
+Dockerfile
+docker-compose.yml

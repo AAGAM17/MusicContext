@@ -1,0 +1,70 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "musiccontext"
+dynamic = ["version"]
+description = "Music intelligence for AI agents: video -> story -> music direction -> soundtrack -> sync."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.11"
+keywords = ["music", "video", "ai-agents", "mcp", "ffmpeg", "agent-skills"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Multimedia :: Sound/Audio",
+  "Topic :: Multimedia :: Video",
+]
+dependencies = ["numpy>=1.26", "pydantic>=2.6"]
+
+[project.optional-dependencies]
+# The MCP server and REST API are implemented on the stdlib; `agent` pulls no
+# extra packages today but is kept so the documented install command is stable.
+agent = []
+dev = ["pytest>=8", "pytest-timeout>=2.3", "ruff>=0.6", "mypy>=1.10", "build>=1.2", "twine>=5"]
+
+[project.scripts]
+musiccontext = "musiccontext.cli.main:main"
+
+[project.entry-points."musiccontext.providers"]
+# third-party packages register providers here; see docs/providers/
+
+[tool.hatch.version]
+path = "src/musiccontext/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/musiccontext"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"skills" = "musiccontext/_data/skills"
+".claude-plugin" = "musiccontext/_data/claude-plugin"
+".codex-plugin" = "musiccontext/_data/codex-plugin"
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "skills", ".claude-plugin", ".codex-plugin", "tests", "docs", "examples", "benchmarks", "scripts", "README.md", "LICENSE", "CHANGELOG.md", "pyproject.toml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# so `pytest` works with no PYTHONPATH: "." makes `tests.conftest` importable, "src" the package.
+pythonpath = [".", "src"]
+timeout = 300
+markers = [
+  "ffmpeg: needs ffmpeg/ffprobe on PATH",
+  "live: needs real provider credentials (skipped otherwise)",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+ignore = ["S101", "S603", "S607", "E501"]
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "B"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_ignores = true

@@ -1,0 +1,35 @@
+# Run the CLI against the current directory:
+#   docker compose run --rm musiccontext analyze myclip.mp4
+#
+services:
+  musiccontext:
+    build: .
+    image: musiccontext:dev
+    working_dir: /work
+    volumes:
+      - ./:/work              # the files you want to analyse
+      - mcdata:/data/musiccontext   # cache, library and artifacts survive between runs
+    environment:
+      MUSICCONTEXT_HOME: /data/musiccontext
+    # No ports and no healthcheck: this is a CLI, not a server.
+
+  # Stdio MCP variant. Not enabled by default because an MCP client normally spawns the
+  # server itself rather than talking to a compose service. If you do run it this way,
+  # stdin must stay open and the stream must NOT be a TTY, or the JSON-RPC framing breaks.
+  #
+  # mcp:
+  #   build: .
+  #   image: musiccontext:dev
+  #   command: ["mcp"]
+  #   working_dir: /work
+  #   stdin_open: true
+  #   tty: false
+  #   volumes:
+  #     - ./:/work
+  #     - mcdata:/data/musiccontext
+  #   environment:
+  #     MUSICCONTEXT_HOME: /data/musiccontext
+  #     MUSICCONTEXT_ROOTS: /work    # sandbox the agent to the mounted directory
+
+volumes:
+  mcdata:

@@ -1,0 +1,32 @@
+{
+  "name": "musiccontext",
+  "version": "0.1.0",
+  "description": "Music direction for AI agents: turn a video into a structured Music Direction Plan (story -> direction -> candidate selection -> sync), search a local library, generate music offline, and render the mixed video with FFmpeg.",
+  "notes": "Codex support is UNVERIFIED in this build. This manifest mirrors the Claude Code plugin (same ./skills directory, same `musiccontext mcp` stdio server) and has only been checked for valid JSON, not against a published Codex plugin schema.",
+  "author": {
+    "name": "MusicContext contributors",
+    "url": "https://github.com/<OWNER>/MusicContext"
+  },
+  "homepage": "https://github.com/<OWNER>/MusicContext",
+  "repository": "https://github.com/<OWNER>/MusicContext",
+  "license": "Apache-2.0",
+  "keywords": [
+    "music",
+    "video",
+    "soundtrack",
+    "music-direction",
+    "ffmpeg",
+    "agent-skills",
+    "mcp"
+  ],
+  "skills": "./skills/",
+  "mcpServers": {
+    "musiccontext": {
+      "type": "stdio",
+      "command": "musiccontext",
+      "args": [
+        "mcp"
+      ]
+    }
+  }
+}

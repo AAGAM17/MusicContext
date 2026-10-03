@@ -1,0 +1,101 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    # Publishing is gated on this: a tag must not reach PyPI without a green suite.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+      - run: pip install -e .[dev]
+      - run: pytest -q --timeout=600
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install build twine
+      - run: python -m build
+      - run: twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  github-release:
+    needs: [test, build]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: Create the GitHub Release with the artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          draft: false
+
+  pypi:
+    needs: [test, build]
+    # Never publish from a fork, and only for an actual version tag. A manual
+    # workflow_dispatch therefore builds and releases but never touches PyPI.
+    if: ${{ !github.event.repository.fork && startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-latest
+    environment: pypi          # requires a manual approval / protected environment
+    permissions:
+      id-token: write          # PyPI trusted publishing; no API token stored anywhere
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+# ---------------------------------------------------------------------------
+# Docker publishing is NOT YET VERIFIED - the image in this repo has never been
+# built in CI or locally. Enable only after `docker build .` and a smoke run of
+# `docker run --rm <image> --version` pass, and after deciding on a registry.
+#
+#  docker:
+#    needs: [test]
+#    runs-on: ubuntu-latest
+#    permissions:
+#      contents: read
+#      packages: write
+#    steps:
+#      - uses: actions/checkout@v4
+#      - uses: docker/login-action@v3
+#        with:
+#          registry: ghcr.io
+#          username: ${{ github.actor }}
+#          password: ${{ secrets.GITHUB_TOKEN }}
+#      - uses: docker/build-push-action@v6
+#        with:
+#          context: .
+#          push: true
+#          tags: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+# ---------------------------------------------------------------------------
