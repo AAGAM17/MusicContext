@@ -21,6 +21,11 @@ All notable changes to this project are documented here. The format follows
 - `recommend` no longer says "no candidate music is available" when the library has tracks that were filtered or
   excluded; it says what was searched for and why nothing passed.
 - `ruff` and `mypy` are clean and now block CI (they were advisory).
+- A call-to-action marker you supply (`--marker T=cta`) now starts the resolution section, and a reveal you supply
+  now has to clear the section before it: on a low-motion video (text, slides) the "peak" used to be no louder than
+  its build. Found by scoring the launch film with MusicContext itself.
+- `generate` uses only the peaks you named when there are any. An inferred "hit" no longer adds its own full-level
+  lift or moves the bar grid off the moment that matters.
 
 ### Fixed
 

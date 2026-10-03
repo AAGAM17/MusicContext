@@ -44,6 +44,10 @@ Markers (`timeline/markers.py`) are typed moments (`reveal`, `cta`, `voiceover_s
 importance and a suggested music action. A marker you pass with `--marker 18.2=reveal` has `source: user` and wins
 over any inferred one.
 
+Two rules follow from "a told fact beats an inferred one": a user `reveal` is the peak, and it must clear the section
+before it, even on a low-motion video; and a user `cta` starts the resolution at that moment. Only moments you named
+become peaks in `generate`; inferred hits are used only when you named none.
+
 The plan carries an `explanation` with evidence and a confidence value, and is saved as a `.musicctx` artifact.
 
 ## 3. Find or generate music
