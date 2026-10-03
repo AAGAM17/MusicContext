@@ -233,7 +233,10 @@ def op_recommend(ctx: OpContext, video: str, *, prefs: dict | None = None, limit
         top = ranked[0]
         selected = MusicSelection(assessment=top, alignment=plan_alignment(top.candidate, direction, rep, res.markers), selected_by="recommendation")
     messages = list(res.messages) + list(found.messages)
-    if not ranked:
+    if not ranked and found.candidates:
+        messages.append(f"{len(found.candidates)} track(s) matched the search but none passed selection; "
+                        "see excluded_candidates for the reasons.")
+    elif not ranked and not found.messages:
         messages.append("No candidate music is available yet. Add your own music with `musiccontext library scan <dir>`, "
                         "or generate a track offline with `musiccontext generate <video>`.")
     res = res.model_copy(update={

@@ -99,7 +99,8 @@ def search_music(
     if not res.candidates:
         queried = ", ".join(sorted(per_provider)) or "no providers"
         res.messages.append(
-            f"No track matched this brief ({queried} queried). What to do next: {SCAN_HINT}, {PROVIDER_HINT}, "
+            f"No track matched this brief ({queried} queried; looked for: {query.describe()}). "
+            f"What to do next: {SCAN_HINT}, {PROVIDER_HINT}, widen it with --bpm, "
             "or generate a track offline with `musiccontext generate <video>`."
         )
     return res
