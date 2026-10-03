@@ -43,3 +43,6 @@ tests/_fixtures/
 .idea/
 .vscode/
 *.swp
+
+### examples/demo.sh output
+demo-out/
