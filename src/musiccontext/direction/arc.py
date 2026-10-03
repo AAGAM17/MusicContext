@@ -54,13 +54,30 @@ def build_arc(story: StoryModel, music_curve: list[tuple[float, float]], markers
         for i, (a, b, role) in enumerate(spans):
             if i + 1 < len(spans) and spans[i + 1][2] == "reveal" and role in ("development", "problem", "establishing"):
                 spans[i] = (a, b, "build" if i > 0 else role)
+    # a user cta marker starts the resolution: whatever the story thought, the call to action is where the music lets go
+    user_cta = next((m for m in markers if m.source == "user" and m.type == "cta"), None)
+    if user_cta and (peak_t is None or user_cta.start_time > peak_t + 1.0):
+        ct = user_cta.start_time
+        new = []
+        for a, b, role in spans:
+            if b <= ct + 0.5:
+                new.append((a, b, role))
+            elif a < ct - 0.5:
+                new.append((a, ct, role))
+                new.append((ct, b, "resolution_cta"))
+            else:
+                new.append((a, b, "resolution_cta"))
+        spans = new
     sections: list[MusicSection] = []
     speech_blocks = voiceover_blocks(speech)
     for a, b, role in spans:
         label = LABELS.get(role, role)
         en = mean_e(a, b)
         if label == "peak":
-            en = max(en, 0.8 if not user_reveal else en)
+            # an inferred peak is at least 0.8; a user-declared one must still clear the section before it,
+            # or a low-motion video (text, slides) gets a "peak" no louder than its build
+            floor = 0.8 if not user_reveal else min(0.8, (sections[-1].energy if sections else 0.3) + 0.3)
+            en = max(en, floor)
         elif label == "build":
             en = min(max(en, mean_e(a, b)), 0.8)
         under = sum(max(0.0, min(b, y) - max(a, x)) for x, y in speech_blocks) / max(b - a, 1e-6) > 0.35
