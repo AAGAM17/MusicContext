@@ -255,3 +255,16 @@ def test_measured_energy_follows_the_requested_arc(provider, settings, tmp_path)
     mean = lambda lo, hi: sum(e for t, e in curve if lo <= t < hi) / max(1, sum(1 for t, _ in curve if lo <= t < hi))  # noqa: E731
     intro, peak, outro = mean(0, 10), mean(12, 17), mean(18, 24)
     assert peak - intro > 0.3 and peak - outro > 0.3, f"intro {intro:.2f}, peak {peak:.2f}, outro {outro:.2f}"
+
+
+def test_build_request_uses_only_the_peaks_the_user_named(direction, analysis):
+    from musiccontext.timeline import markers as M
+
+    ms = [
+        M.make(12.0, "reveal", "told", source="user"),
+        M.make(4.0, "action_peak", "heuristic on a quiet video", source="inferred"),  # action hit
+    ]
+    assert build_request(direction, analysis, markers=ms).peak_times == [12.0]
+    # with nothing told, the inferred hit is still honoured
+    only_inferred = [M.make(4.0, "action_peak", "heuristic", source="inferred")]
+    assert build_request(direction, analysis, markers=only_inferred).peak_times == [4.0]

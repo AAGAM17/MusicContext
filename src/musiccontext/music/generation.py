@@ -49,13 +49,16 @@ def build_request(
     if direction.vocals == "none" and "vocals" not in negatives:
         negatives.append("vocals")
 
-    peaks = [
-        round(float(m.timestamp), 3)
-        for m in (markers or [])
+    candidates = [
+        m for m in (markers or [])
         if getattr(m, "suggested_music_action", "none") in PEAK_ACTIONS
         and getattr(m, "importance", 0.0) >= PEAK_IMPORTANCE
         and 0.0 <= float(m.timestamp) < total
     ]
+    # Moments the user named are the peaks. An inferred "hit" (a heuristic on a quiet video) must not add a
+    # full-level lift of its own, or move the bar grid off the moment that matters.
+    told = [m for m in candidates if getattr(m, "source", "") == "user"]
+    peaks = [round(float(m.timestamp), 3) for m in (told or candidates)]
     if not peaks and direction.arc.peak_time is not None and 0.0 <= direction.arc.peak_time < total:
         peaks = [round(float(direction.arc.peak_time), 3)]
 
