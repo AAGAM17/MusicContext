@@ -39,7 +39,7 @@ def resolve_public(host: str, port: int, allow_private: bool) -> str:
     chosen = None
     for *_, sockaddr in infos:
         ip = ipaddress.ip_address(sockaddr[0])
-        if getattr(ip, "ipv4_mapped", None):
+        if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
             ip = ip.ipv4_mapped
         if not allow_private and not ip.is_global:
             raise UnsafeURLError(

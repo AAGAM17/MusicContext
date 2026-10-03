@@ -8,7 +8,7 @@ Missing evidence scores "unknown", never "low": we never guess BPM, licensing or
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
@@ -67,12 +67,12 @@ def aggregate(dimensions: list[ScoreDimension], weights: dict[str, float]) -> tu
     """(weighted mean, names that were scored, names that were not) — unknowns are skipped, not zeroed."""
     scored = [d for d in dimensions if d.score is not None and d.level not in UNSCORED and weights.get(d.name, 0.0) > 0]
     names = {d.name for d in scored}
-    skipped = [d.name for d in dimensions if d.name not in names]
+    skipped: list[str] = [d.name for d in dimensions if d.name not in names]
     if not scored:
         return 0.0, [], skipped
     total = sum(weights[d.name] for d in scored)
     value = sum((d.score or 0.0) * weights[d.name] for d in scored) / total
-    return round(value, 4), [d.name for d in scored], skipped
+    return round(value, 4), [str(d.name) for d in scored], skipped
 
 
 # ---------------------------------------------------------------------------- evidence helpers
@@ -95,7 +95,8 @@ def _vocab(c: MusicCandidate) -> set[str]:
 
 
 def _overlap(terms: list[str], vocab: set[str]) -> tuple[list[str], list[str]]:
-    hit, miss = [], []
+    hit: list[str] = []
+    miss: list[str] = []
     for t in terms:
         (hit if expand(_norm(t)) & vocab else miss).append(_norm(t))
     return hit, miss
@@ -168,7 +169,7 @@ def _energy(f: MusicFeatures | None, direction: MusicDirection, query: SearchQue
     want = float(query.energy) if query and query.energy is not None else direction.energy
     mean = float(np.mean([p[1] for p in f.energy_curve]))
     diff = abs(mean - want)
-    level = "high" if diff <= 0.12 else "medium" if diff <= 0.25 else "low"
+    level: Literal["high", "medium", "low"] = "high" if diff <= 0.12 else "medium" if diff <= 0.25 else "low"
     reasons = [f"mean energy {mean:.2f} against the direction's target {want:.2f}"]
     shape_bonus = 0.0
     a, b = _resample(f.energy_curve), _resample(direction.arc.energy_curve)
@@ -211,7 +212,7 @@ def _mood(c: MusicCandidate, direction: MusicDirection, query: SearchQuery | Non
     if early:
         return early
     frac = len(hit) / len(terms)
-    level = "high" if frac >= 0.5 else "medium" if hit else "low"
+    level: Literal["high", "medium", "low"] = "high" if frac >= 0.5 else "medium" if hit else "low"
     reasons = [f"tags match {len(hit)}/{len(terms)} of the wanted mood/style terms: {', '.join(hit)}" if hit
                else f"no tag or metadata value matches any of {', '.join(terms)} (or their synonyms)"]
     if miss:
@@ -233,7 +234,7 @@ def _instrumentation(c: MusicCandidate, direction: MusicDirection) -> ScoreDimen
     want = len(inst.preferred) or len(terms)
     pref_hit = [h for h in hit if h in {_norm(p) for p in inst.preferred}]
     frac = min(1.0, (len(pref_hit) + 0.5 * (len(hit) - len(pref_hit))) / max(want, 1))
-    level = "high" if frac >= 0.5 else "medium" if hit else "low"
+    level: Literal["high", "medium", "low"] = "high" if frac >= 0.5 else "medium" if hit else "low"
     reasons = [f"tags name {len(hit)} wanted instrument(s): {', '.join(hit)}" if hit
                else f"no tag names any of the preferred instruments ({', '.join(inst.preferred) or 'none listed'})",
                "no prohibited instrumentation appears in the tags"]

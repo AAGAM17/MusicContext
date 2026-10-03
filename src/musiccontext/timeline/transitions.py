@@ -16,5 +16,7 @@ def cut_rhythm(cut_times: list[float]) -> dict:
 
 def bpm_for_interval(interval: float, lo: float, hi: float, target: float) -> float | None:
     """BPM (within [lo, hi], closest to target) such that `interval` is a whole number of beats."""
-    cands = [60.0 * k / interval for k in range(1, 64) if lo <= 60.0 * k / interval <= hi]
-    return round(min(cands, key=lambda b: abs(b - target)), 1) if cands else None
+    cands: list[float] = [60.0 * k / interval for k in range(1, 64) if lo <= 60.0 * k / interval <= hi]
+    if not cands:
+        return None
+    return round(min((abs(c - target), c) for c in cands)[1], 1)

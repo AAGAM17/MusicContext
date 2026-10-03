@@ -106,7 +106,7 @@ def energy_curve(scenes: list[Scene], duration: float, fs: FrameSeries) -> list[
     if len(fs.t) > 2:
         local = np.interp(t, fs.t, np.convolve(fs.motion, np.ones(5) / 5, mode="same"))
         mx = max(float(local.max()), 0.25)
-        base = 0.8 * base + 0.2 * np.clip(local / mx, 0, 1) * (base.max() if base.max() > 0 else 1)
+        base = 0.8 * base + 0.2 * np.clip(local / mx, 0, 1) * (float(np.max(base)) if np.max(base) > 0 else 1.0)
     k = np.ones(3) / 3
     sm = np.convolve(np.pad(base, 1, mode="edge"), k, mode="valid")
     return [(float(x), round(float(np.clip(y, 0, 1)), 3)) for x, y in zip(t, sm, strict=True)]
@@ -176,7 +176,7 @@ def build_story(scenes: list[Scene], duration: float, curve, median_cut: float |
     pace = max(set(pace_vote), key=pace_vote.count) if pace_vote else "moderate"
     return StoryModel(
         duration=duration, segments=segs, energy_curve=curve, peak_time=peak.start_time if peak else None,
-        pace=pace, median_cut_interval=median_cut,  # type: ignore[arg-type]
+        pace=pace, median_cut_interval=median_cut,
         visual_style=sorted({t for s in scenes for t in s.visual_style}),
     )
 
@@ -219,12 +219,12 @@ def build_report(meta: VideoMetadata, cuts, transitions: list[Transition], fs: F
     aev.sort(key=lambda e: e.start_time)
 
     narr: list[NarrativeEvent] = []
-    for s in story.segments:
-        if s.role in ("reveal", "climax"):
-            narr.append(NarrativeEvent(start_time=s.start_time, end_time=s.end_time, kind="reveal_candidate" if s.role == "reveal" else "climax_candidate", importance=0.9,
-                                       confidence=0.45, source="inferred", label=f"energy rises to {s.energy:.2f}", provenance="peak of the story energy curve after a rise"))
-        if s.role == "resolution_cta":
-            narr.append(NarrativeEvent(start_time=s.start_time, end_time=s.end_time, kind="cta_candidate", importance=0.6, confidence=0.4, source="inferred",
+    for seg in story.segments:
+        if seg.role in ("reveal", "climax"):
+            narr.append(NarrativeEvent(start_time=seg.start_time, end_time=seg.end_time, kind="reveal_candidate" if seg.role == "reveal" else "climax_candidate", importance=0.9,
+                                       confidence=0.45, source="inferred", label=f"energy rises to {seg.energy:.2f}", provenance="peak of the story energy curve after a rise"))
+        if seg.role == "resolution_cta":
+            narr.append(NarrativeEvent(start_time=seg.start_time, end_time=seg.end_time, kind="cta_candidate", importance=0.6, confidence=0.4, source="inferred",
                                        label="closing section", provenance="last story segment after the peak"))
     stats = {
         "duration": d, "scene_count": len(scenes), "cut_count": len(cuts),

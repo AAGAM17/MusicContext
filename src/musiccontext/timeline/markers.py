@@ -41,6 +41,6 @@ def parse_user_marker(spec: str) -> tuple[float, str]:
 def make(t: float, kind: str, reason: str, *, source="inferred", confidence=0.5, provenance="", importance: float | None = None, action: str | None = None) -> MusicMarker:
     imp, act = DEFAULTS[kind]
     return MusicMarker(
-        timestamp=round(t, 3), type=kind, importance=round(importance if importance is not None else imp, 2),  # type: ignore[arg-type]
+        timestamp=round(t, 3), type=kind, importance=round(importance if importance is not None else imp, 2),  # type: ignore[arg-type,call-arg]
         suggested_music_action=action or act, reason=reason[:300], confidence=round(confidence, 2), source=source, provenance=provenance,  # type: ignore[arg-type]
     )

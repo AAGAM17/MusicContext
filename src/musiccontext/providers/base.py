@@ -12,6 +12,7 @@ ProviderUnavailableError with an actionable hint rather than failing obscurely.
 
 from __future__ import annotations
 
+import builtins
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -118,7 +119,7 @@ class MusicLibraryProvider(Provider):
     def list(self, settings, limit: int = 100, offset: int = 0) -> list[MusicCandidate]: ...
 
     @abstractmethod
-    def search(self, query: SearchQuery, settings, limit: int = 20) -> list[MusicCandidate]: ...
+    def search(self, query: SearchQuery, settings, limit: int = 20) -> builtins.list[MusicCandidate]: ...
 
     @abstractmethod
     def get(self, track_id: str, settings) -> MusicCandidate | None: ...

@@ -84,7 +84,7 @@ def capabilities(settings) -> list[ProviderCapability]:
         try:
             out.append(p.capability(settings))
         except Exception as e:  # noqa: BLE001
-            out.append(ProviderCapability(name=p.name, kinds=list(p.kinds), available=False, notes=f"capability check failed: {type(e).__name__}"))
+            out.append(ProviderCapability(name=p.name, kinds=list(p.kinds), available=False, notes=f"capability check failed: {type(e).__name__}"))  # type: ignore[arg-type]
     return sorted(out, key=lambda c: (not c.available, c.name))
 
 
@@ -96,10 +96,10 @@ def pick(kind: Kind, settings, requested: str | None = None) -> Provider:
         p.require_available(settings)
         return p
     if settings.provider:
-        p = _REGISTRY.get(settings.provider)
-        if p and kind in p.kinds:
-            p.require_available(settings)
-            return p
+        named = _REGISTRY.get(settings.provider)
+        if named and kind in named.kinds:
+            named.require_available(settings)
+            return named
     avail = [p for p in list_providers(kind) if p.available(settings)]
     if not avail:
         raise NoProviderConfiguredError({"generation": "music generation", "search": "music search", "library": "music library"}.get(kind, kind))

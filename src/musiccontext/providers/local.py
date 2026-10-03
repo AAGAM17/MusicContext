@@ -6,6 +6,8 @@ indexed tracks. An empty library is a real answer, and `capability().notes` says
 
 from __future__ import annotations
 
+import builtins
+
 from ..errors import MusicContextError
 from ..schemas import MusicCandidate, ProviderCapability
 from .base import MusicLibraryProvider, SearchQuery
@@ -44,7 +46,7 @@ class LocalLibraryProvider(MusicLibraryProvider):
 
         return library.list_tracks(settings, limit=limit, offset=offset)
 
-    def search(self, query: SearchQuery, settings, limit: int = 20) -> list[MusicCandidate]:
+    def search(self, query: SearchQuery, settings, limit: int = 20) -> builtins.list[MusicCandidate]:
         from ..music import library
 
         return library.search_tracks(settings, query, limit=limit)

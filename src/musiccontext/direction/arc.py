@@ -36,7 +36,7 @@ def build_arc(story: StoryModel, music_curve: list[tuple[float, float]], markers
     user_reveal = next((m for m in markers if m.source == "user" and m.type in ("reveal", "product_appearance", "feature_reveal", "action_peak")), None)
     peak_t = user_reveal.start_time if user_reveal else story.peak_time
     spans: list[tuple[float, float, str]] = [(s.start_time, s.end_time, s.role) for s in story.segments]
-    if user_reveal:
+    if user_reveal and peak_t is not None:
         new: list[tuple[float, float, str]] = []
         for a, b, role in spans:
             if a < peak_t < b - 0.5 and peak_t - a > 0.5:

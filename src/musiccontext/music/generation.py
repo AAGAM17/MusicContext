@@ -9,9 +9,13 @@ rather than merely asserted.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
 from ..errors import InvalidArgumentError
 from ..schemas import MusicDirection, MusicGenerationRequest, MusicGenerationResult
+
+if TYPE_CHECKING:
+    from ..providers.base import MusicGenerationProvider
 
 PEAK_ACTIONS = ("peak", "hit")
 PEAK_IMPORTANCE = 0.6
@@ -100,7 +104,7 @@ def generate_music(
         from ..providers.search import sandbox_output
 
         target = sandbox_output(dest, settings, force=force)
-    return chosen.generate(request, settings, target)
+    return cast("MusicGenerationProvider", chosen).generate(request, settings, target)
 
 
 def generation_report(result: MusicGenerationResult, request: MusicGenerationRequest) -> dict:

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from itertools import zip_longest
+from typing import Any
 
 from ..schemas import MusicCandidate
 from ..security.secrets import redact
@@ -40,7 +41,7 @@ def search_music(
     res = SearchResults()
     offline = bool(getattr(settings, "local_only", False)) or bool(local_only)
 
-    pool: dict[str, object] = {}
+    pool: dict[str, Any] = {}
     for kind in ("library", "search"):
         for p in registry.list_providers(kind):
             pool.setdefault(p.name, p)

@@ -106,7 +106,6 @@ def make_long_video(path: Path, seconds: int, w: int = 320, h: int = 180, fps: i
     fc = ""
     for i in range(n):
         s = srcs[i % len(srcs)]
-        opt = "" if "=" in s else ""
         argv += ["-f", "lavfi", "-i", f"{s}{':' if '=' in s else '='}s={w}x{h}:r={fps}:d={seg}" if s != "life=ratio=0.1" else f"life=s={w}x{h}:r={fps}:ratio=0.1:rate={fps}:mold=10:random_seed=3:death_color=#101010:life_color=#c0e0ff,trim=duration={seg}"]
         fc += f"[{i}:v]scale={w}:{h},format=yuv420p[v{i}];"
     fc += "".join(f"[v{i}]" for i in range(n)) + f"concat=n={n}:v=1:a=0[v]"

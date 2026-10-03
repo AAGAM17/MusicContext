@@ -571,7 +571,12 @@ def cmd_render(args, ctx: OpContext) -> int:
     d = ops.op_sync(ctx, video=args.video, music=music, output=out, prefs=_prefs(args), duck=args.duck,
                     force=args.force, dry_run=args.dry_run)
     d.update(extra)
-    _out(args, d, lambda: (print(r.dim(f"music: {music}")), show_sync(d)))
+
+    def human():
+        print(r.dim(f"music: {music}"))
+        show_sync(d)
+
+    _out(args, d, human)
     return 0
 
 

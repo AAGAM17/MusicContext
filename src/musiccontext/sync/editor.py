@@ -196,14 +196,14 @@ def render(plan: RenderPlan, settings, *, policy: PathPolicy | None = None, dry_
             mode = "expression"
 
     gain = finite("gain_db", a.gain_db)
-    if blocks:
+    if blocks and spec is not None:
         gain += finite("bed_gain_db", spec.bed_gain_db)
     vol = volume_db(gain)
     if vol:
         post.append(vol)
         applied.append(f"music gain {num(gain)} dB")
 
-    if blocks and mode == "expression":
+    if blocks and spec is not None and mode == "expression":
         # Blocks are video-timeline times; the chain runs in music-local time, so shift by the delay.
         local = [(b0 - delay, b1 - delay) for b0, b1 in blocks]
         expr = duck.duck_expression(local, spec.duck_depth_db, spec.attack_ms, spec.release_ms, span)
@@ -229,7 +229,7 @@ def render(plan: RenderPlan, settings, *, policy: PathPolicy | None = None, dry_
 
     # --- dialogue + mix ----------------------------------------------------------------
     keep_orig = plan.keep_original_audio and video_audio > 0
-    sidechain = bool(blocks) and mode == "sidechain"
+    sidechain = bool(blocks) and spec is not None and mode == "sidechain"
     music_label = "mpre"
     orig_label = "dia"
     if keep_orig or sidechain:
@@ -243,7 +243,7 @@ def render(plan: RenderPlan, settings, *, policy: PathPolicy | None = None, dry_
             stmts.append(f"{head}[dkey]")
         if og:
             applied.append(f"original audio gain {num(plan.original_gain_db)} dB")
-    if sidechain:
+    if sidechain and spec is not None:
         sc = duck.sidechain_filters(spec.duck_depth_db, spec.attack_ms, spec.release_ms)
         if sc:
             stmts.append(f"[mpre][dkey]{sc[0]}[mduck]")

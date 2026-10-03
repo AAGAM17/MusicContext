@@ -23,19 +23,8 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -e .[dev]
-      # TODO: drop continue-on-error once src/ is clean. As of writing `ruff check src`
-      # reports 17 findings in modules still being written, and `ruff format --check`
-      # would rewrite 45 files, so formatting is NOT enforced here on purpose -
-      # enabling it would mean reformatting code other authors are actively editing.
-      - name: ruff check
-        run: ruff check src tests benchmarks scripts
-        continue-on-error: true
-      - name: ruff check (own test + benchmark code, blocking)
-        run: ruff check tests/security benchmarks
-      # TODO: drop continue-on-error once the 41 remaining mypy findings are fixed.
-      - name: mypy
-        run: mypy src
-        continue-on-error: true
+      - run: ruff check src tests benchmarks scripts
+      - run: mypy src
 
   test:
     runs-on: ${{ matrix.os }}

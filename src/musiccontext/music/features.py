@@ -160,7 +160,6 @@ def analyze_music(path: Path, settings=None, *, provider_beats: dict | None = No
         raise UnsupportedMediaError(f"'{path.name}' contains no decodable audio.", "Supported audio: wav, mp3, flac, ogg, m4a, aac, opus.")
     flux, lowflux, rms, cent, chroma, band = st
     dur = len(rms) * HOP / SR
-    db = 20 * np.log10(rms + 1e-9)
     # per-second energy curve (absolute scale: -40 dBFS -> 0, -10 dBFS -> 1).
     # Averaged in the power domain: averaging dB would let the near-silent frames between
     # transients dominate, which reads a sparse percussive track as silence.

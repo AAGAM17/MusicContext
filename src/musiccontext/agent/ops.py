@@ -19,6 +19,7 @@ from ..engine.artifacts import (
     save_artifact,
     summarize,
 )
+from ..engine.context import Settings
 from ..errors import InvalidArgumentError, MusicContextError
 from ..schemas import (
     AnalysisReport,
@@ -38,7 +39,7 @@ VOCALS = ("none", "allowed", "preferred", "spoken_word")
 
 @dataclass
 class OpContext:
-    settings: object
+    settings: Settings
     policy: PathPolicy
     restricted: bool = False
     warnings: list[str] = field(default_factory=list)

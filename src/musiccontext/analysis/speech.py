@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -57,14 +58,14 @@ def parse_subtitles(text: str, provenance: str) -> list[SpeechSegment]:
 
 def parse_transcript_json(text: str, provenance: str) -> list[SpeechSegment]:
     data = json.loads(text)
-    items = data.get("segments", data.get("chunks", [])) if isinstance(data, dict) else data
+    items: Any = data.get("segments", data.get("chunks", [])) if isinstance(data, dict) else data
     segs = []
     for it in items[:MAX_SEGMENTS]:
         if not isinstance(it, dict):
             continue
         a = it.get("start", it.get("start_time", it.get("start_s")))
         b = it.get("end", it.get("end_time", it.get("end_s")))
-        if a is None or b is None and "timestamp" not in it:
+        if a is None or b is None:
             continue
         try:
             a, b = float(a), float(b)
@@ -131,7 +132,7 @@ def detect_speech(series: AudioSeries) -> tuple[list[SpeechSegment], dict]:
             sc = 0.0
         else:
             p = np.abs(np.fft.rfft((seg - seg.mean()) * np.hanning(w))) ** 2
-            mod = float(p[syl].sum() / max(p[allb].sum(), 1e-9))
+            mod = float(p[syl].sum()) / max(float(p[allb].sum()), 1e-9)
             v = float(voice[i + w // 2])
             pf = float(pause[i + w // 2])
             sc = 0.45 * np.clip((v - 0.4) / 0.4, 0, 1) + 0.4 * np.clip((mod - 0.15) / 0.35, 0, 1) + 0.15 * (1.0 if 0.05 <= pf <= 0.6 else 0.0)

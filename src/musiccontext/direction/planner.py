@@ -62,7 +62,7 @@ def create_plan(rep: AnalysisReport, prefs: Preferences | None = None, profile: 
     preset_name = prefs.platform or prefs.content_type
     preset = presets.get(preset_name)
     cut_times = [t.start_time for t in rep.transitions]
-    directions = []
+    directions: list[MusicDirection] = []
     user_styles = _norm([*prefs.style, *prefs.genre])
     profile_styles = _norm(profile.preferred_styles) if profile else []
     avoid = _norm([*prefs.avoid, *(profile.avoid if profile else []), *preset.get("avoid", [])])
@@ -100,7 +100,7 @@ def _direction(rep, prefs, profile, f, markers, preset, preset_name, ranked, sty
     energy = float(np.mean([p[1] for p in curve])) if curve else f.energy
     # tempo
     pr = tuple(preset["bpm"]) if "bpm" in preset else None
-    tempo, tempo_ev = choose_tempo(energy, rep.story.pace, speech_ratio, cut_times, prefs.bpm, pr)  # type: ignore[arg-type]
+    tempo, tempo_ev = choose_tempo(energy, rep.story.pace, speech_ratio, cut_times, prefs.bpm, pr)
     # vocals
     vocals = prefs.vocals or (profile.vocals if profile else None) or preset.get("vocals") or "none"
     if has_speech and speech_ratio >= 0.15 and vocals in ("preferred", "allowed") and not prefs.vocals:
@@ -163,7 +163,8 @@ def _direction(rep, prefs, profile, f, markers, preset, preset_name, ranked, sty
                f"{' at ' + format(arc.peak_time, '.0f') + ' seconds' if arc.peak_time is not None else ''}, resolves cleanly") + ("; no vocals" if vocals == "none" else "")
     return MusicDirection(
         label=label, style=styles, mood=moods, energy=round(energy, 3), tempo=tempo, rhythm=rhythm, instrumentation=inst, texture=texture,  # type: ignore[arg-type]
-        vocals=vocals, arc=arc, ducking=ducking, constraints=constraints, requirement=req, explanation=expl, brief=brief, generation_prompt=gprompt[:1900],
+        vocals=vocals, arc=arc, ducking=ducking,  # type: ignore[arg-type]
+        constraints=constraints, requirement=req, explanation=expl, brief=brief, generation_prompt=gprompt[:1900],
     )
 
 
