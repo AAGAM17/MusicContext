@@ -77,9 +77,17 @@ The core engine knows nothing about any specific model, vendor or catalogue. Pro
 Requires **Python 3.11+** and **FFmpeg 6+** (`ffmpeg` and `ffprobe` on `PATH`).
 
 ```bash
-pipx install "musiccontext[agent] @ git+https://github.com/AAGAM17/MusicContext"
-musiccontext doctor
+pipx install "musiccontext[agent] @ git+https://github.com/AAGAM17/MusicContext" && musiccontext init-agent
 ```
+
+That one line installs the CLI and adds the Skill to every coding agent it finds on your machine — Claude Code,
+Codex, Cursor, VS Code Copilot, Gemini CLI. Restart the agent, type `/musiccontext`, or just ask for music and the
+agent will pick the Skill up on its own. Add `--mcp` to wire the MCP server too, `--agent cursor` to pick one,
+`--all` to cover agents not detected yet. Check with `musiccontext doctor`.
+
+Already have the CLI? Any [Agent Skills](https://agentskills.io) installer works against this repo too:
+`npx skills add AAGAM17/MusicContext`. In Claude Code: `/plugin marketplace add AAGAM17/MusicContext` then
+`/plugin install musiccontext@musiccontext`.
 
 From a checkout:
 
@@ -254,7 +262,7 @@ performed unless a tool call asks for it. See [`docs/agents/mcp.md`](docs/agents
 | `config` | `show` (secrets redacted), `set`, `path` |
 | `profile` | brand/creative profiles that bias direction |
 | `doctor` | diagnose the install |
-| `init-agent` | install the Skill into Claude Code / Codex |
+| `init-agent` | install the Skill (and optionally MCP) into every coding agent found |
 | `mcp` | run the MCP server |
 
 Global flags: `--json --format --quiet --verbose --output --force --no-cache --provider --model --local-only`.

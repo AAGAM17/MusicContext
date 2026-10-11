@@ -172,3 +172,17 @@ def test_render_one_shot_generates_and_mixes(run, demo_video, tmp_path):
     assert d["duration"] == pytest.approx(24.0, abs=0.3)
     assert d["generated"]["provider"] == "procedural"
     assert d["generated"]["bpm"]["measured"] == pytest.approx(d["generated"]["bpm"]["requested"], abs=2.5)
+
+
+def test_init_agent_targets_every_agent_and_merges_mcp(tmp_path):
+    env = {**os.environ, "PYTHONPATH": str(ROOT / "src"), "MUSICCONTEXT_HOME": str(tmp_path / "h")}
+    (tmp_path / ".vscode").mkdir()
+    (tmp_path / ".vscode/mcp.json").write_text('{"servers": {"other": {"command": "x"}}}')
+    cp = subprocess.run([sys.executable, "-m", "musiccontext", "init-agent", "--project", "--all", "--mcp", "--json"],
+                        capture_output=True, text=True, timeout=120, cwd=tmp_path, env=env)
+    assert cp.returncode == 0, cp.stderr
+    for d in (".claude", ".agents", ".cursor", ".github", ".gemini"):
+        assert (tmp_path / d / "skills" / "musiccontext" / "SKILL.md").is_file(), d
+    vs = json.loads((tmp_path / ".vscode/mcp.json").read_text())["servers"]
+    assert set(vs) == {"other", "musiccontext"} and vs["musiccontext"]["type"] == "stdio"
+    assert "mcpServers" in json.loads((tmp_path / ".cursor/mcp.json").read_text())

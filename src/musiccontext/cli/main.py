@@ -188,11 +188,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     d = sub.add_parser("doctor", help="Check the installation, FFmpeg, providers and agent integrations.")
     _common(d)
-    ia = sub.add_parser("init-agent", help="Install the MusicContext Skill into Claude Code and/or Codex.")
-    ia.add_argument("--claude", action="store_true", help="only Claude Code")
-    ia.add_argument("--codex", action="store_true", help="only Codex")
+    ia = sub.add_parser("init-agent", help="Install the MusicContext Skill into every coding agent found (Claude Code, Codex, Cursor, VS Code Copilot, Gemini CLI).")
+    ia.add_argument("--agent", action="append", choices=["claude", "codex", "cursor", "copilot", "gemini"], help="only this agent (repeatable)")
+    ia.add_argument("--claude", dest="agent", action="append_const", const="claude", help=argparse.SUPPRESS)
+    ia.add_argument("--codex", dest="agent", action="append_const", const="codex", help=argparse.SUPPRESS)
+    ia.add_argument("--all", action="store_true", help="install for every supported agent, even ones not detected here")
     ia.add_argument("--mcp", action="store_true", help="also configure the MCP server")
-    ia.add_argument("--project", action="store_true", help="install into this project (./.claude) instead of your home directory")
+    ia.add_argument("--project", action="store_true", help="install into this project (e.g. ./.claude/skills) instead of your home directory")
     ia.add_argument("--dry-run", action="store_true", help="show what would change and exit")
     _common(ia)
     m = sub.add_parser("mcp", help="Run the MCP server on stdio (used by agents, not interactively).")
@@ -535,7 +537,7 @@ def dispatch(args, ctx: OpContext, parser) -> int:  # noqa: PLR0911, PLR0912
     if cmd == "init-agent":
         from ..agent.install import install
 
-        d = install(ctx.settings, claude=args.claude, codex=args.codex, mcp=args.mcp, project=args.project,
+        d = install(ctx.settings, agents=args.agent, everywhere=args.all, mcp=args.mcp, project=args.project,
                     force=args.force, dry_run=args.dry_run)
         _out(args, d, lambda: show_install(d))
         return 0 if d["ok"] else 1

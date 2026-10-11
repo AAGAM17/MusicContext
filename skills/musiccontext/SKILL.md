@@ -31,6 +31,15 @@ as the agent is to carry that distinction through to the user.
   a composer replacement — say so.
 - There is no video. `analyze`/`plan` need a video file with a readable duration.
 
+## Setup (do this first, once)
+
+Run `musiccontext doctor`. If the command is not found, install it, then re-run doctor
+(needs Python 3.11+ and FFmpeg on `PATH`):
+
+```bash
+pipx install "musiccontext[agent] @ git+https://github.com/AAGAM17/MusicContext"
+```
+
 ## Core workflow
 
 Run it in this order. Each step reuses the previous step's `.musicctx` artifact, so you can stop

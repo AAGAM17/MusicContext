@@ -1,0 +1,11 @@
+{
+  "name": "musiccontext",
+  "owner": { "name": "MusicContext contributors", "url": "https://github.com/AAGAM17/MusicContext" },
+  "plugins": [
+    {
+      "name": "musiccontext",
+      "source": "./",
+      "description": "Music direction for AI agents: video -> story -> music direction -> soundtrack -> sync."
+    }
+  ]
+}
