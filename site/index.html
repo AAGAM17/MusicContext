@@ -1,0 +1,896 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MusicContext</title>
+<meta name="description" content="Music intelligence for AI agents. MusicContext analyses what a video is, decides what music it needs, finds or generates it, and mixes it in — and tells you what it measured versus guessed.">
+<meta property="og:title" content="MusicContext — music intelligence for AI agents">
+<meta property="og:description" content="video → story → music direction → soundtrack → sync → final video. A local-first CLI, MCP server, Python SDK and Agent Skill.">
+<meta property="og:image" content="demo-timeline.png">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230c0a10'/><path d='M5 20h3l2-8 3 14 3-18 3 12 2-4h6' fill='none' stroke='%23ff9f43' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0c0a10;
+  --bg-2: #13101a;
+  --panel: rgba(255, 255, 255, 0.035);
+  --panel-solid: #16121e;
+  --line: rgba(255, 255, 255, 0.09);
+  --line-2: rgba(255, 255, 255, 0.16);
+  --text: #f3eee7;
+  --muted: #a39cab;
+  --dim: #6f6878;
+  --amber: #ff9f43;
+  --coral: #ff5e62;
+  --violet: #a78bfa;
+  --cyan: #5eead4;
+  --user: #ffd166;
+  --detected: #5eead4;
+  --estimated: #a78bfa;
+  --inferred: #ff8fab;
+  --grad: linear-gradient(100deg, #ffd166 0%, #ff9f43 35%, #ff5e62 70%, #c86bfa 100%);
+  --serif: "Instrument Serif", Georgia, serif;
+  --sans: "Inter Tight", system-ui, -apple-system, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --r: 18px;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) { color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: var(--sans); font-size: 17px; line-height: 1.6;
+  -webkit-font-smoothing: antialiased; overflow-x: hidden;
+}
+a { color: inherit; }
+::selection { background: var(--amber); color: #120c05; }
+code, pre, kbd { font-family: var(--mono); }
+
+/* ---------- 3D stage ---------- */
+#stage { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+#stage canvas { display: block; width: 100%; height: 100%; }
+.vignette {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    radial-gradient(120% 80% at 50% 0%, transparent 40%, rgba(12,10,16,.75) 100%),
+    linear-gradient(to bottom, transparent 55%, rgba(12,10,16,.65));
+}
+.grain {
+  position: fixed; inset: -50%; z-index: 2; pointer-events: none; opacity: .05;
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+main, header, footer { position: relative; z-index: 3; }
+
+/* ---------- nav ---------- */
+.nav {
+  position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 20;
+  display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 16px;
+  width: min(1080px, calc(100% - 32px));
+  background: rgba(18, 14, 24, .62); backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border: 1px solid var(--line); border-radius: 999px;
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -.01em; text-decoration: none; margin-right: auto; }
+.brand svg { width: 26px; height: 26px; }
+.nav a.l { font-size: 14px; color: var(--muted); text-decoration: none; padding: 8px 12px; border-radius: 999px; transition: color .2s, background .2s; }
+.nav a.l:hover { color: var(--text); background: rgba(255,255,255,.06); }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; font: 600 14px var(--sans);
+  padding: 10px 16px; border-radius: 999px; text-decoration: none; cursor: pointer;
+  border: 1px solid var(--line-2); background: rgba(255,255,255,.04); color: var(--text);
+  transition: transform .2s, background .2s, border-color .2s;
+}
+.btn:hover { transform: translateY(-1px); background: rgba(255,255,255,.08); }
+.btn.primary { background: var(--text); color: #120c05; border-color: transparent; }
+.btn.primary:hover { background: #fff; }
+.btn svg { width: 16px; height: 16px; }
+@media (max-width: 760px) { .nav a.l { display: none; } }
+
+/* ---------- layout ---------- */
+.wrap { width: min(1080px, calc(100% - 32px)); margin: 0 auto; }
+section { padding: 120px 0; }
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 10px; font: 500 12px var(--mono);
+  letter-spacing: .14em; text-transform: uppercase; color: var(--amber);
+}
+.eyebrow::before { content: ""; width: 22px; height: 1px; background: currentColor; }
+h1, h2, h3 { margin: 0; letter-spacing: -.02em; }
+h2 { font-family: var(--serif); font-weight: 400; font-size: clamp(40px, 6vw, 68px); line-height: 1.02; margin: 18px 0 18px; }
+h2 em, h1 em { font-style: italic; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+h3 { font-size: 19px; font-weight: 600; }
+.lead { color: var(--muted); font-size: 19px; max-width: 640px; }
+.reveal { opacity: 0; transform: translateY(28px); transition: opacity .9s cubic-bezier(.2,.7,.2,1), transform .9s cubic-bezier(.2,.7,.2,1); }
+.reveal.in { opacity: 1; transform: none; }
+
+/* ---------- hero ---------- */
+.hero { min-height: 100vh; display: flex; align-items: center; padding: 140px 0 80px; }
+.pill {
+  display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--panel);
+  font-size: 13px; color: var(--muted); backdrop-filter: blur(8px);
+}
+.pill b { font: 600 11px var(--mono); color: #120c05; background: var(--amber); padding: 3px 8px; border-radius: 999px; }
+.hero h1 {
+  font-family: var(--serif); font-weight: 400; font-size: clamp(56px, 10vw, 128px);
+  line-height: .92; margin: 26px 0 26px; letter-spacing: -.035em;
+}
+.hero p.lead { font-size: clamp(18px, 2vw, 21px); }
+.flow {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 30px 0 36px;
+  font: 500 13px var(--mono); color: var(--muted);
+}
+.flow span { padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px; background: rgba(12,10,16,.5); }
+.flow i { font-style: normal; color: var(--dim); }
+.flow span:last-child { color: var(--text); border-color: rgba(255,159,67,.5); box-shadow: 0 0 24px rgba(255,159,67,.18); }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; }
+.oneliner {
+  margin-top: 34px; display: flex; align-items: center; gap: 12px; max-width: 760px;
+  padding: 14px 14px 14px 18px; border-radius: 14px; border: 1px solid var(--line-2);
+  background: rgba(16,12,22,.72); backdrop-filter: blur(10px); font: 14px var(--mono);
+}
+.oneliner code { flex: 1; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+.oneliner code::-webkit-scrollbar { display: none; }
+.oneliner .p { color: var(--amber); }
+.scrollhint { position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%); font: 11px var(--mono); letter-spacing: .2em; color: var(--dim); text-transform: uppercase; }
+.scrollhint::after { content: ""; display: block; width: 1px; height: 36px; margin: 10px auto 0; background: linear-gradient(var(--amber), transparent); animation: drip 2s infinite; }
+@keyframes drip { 0% { transform: scaleY(0); transform-origin: top; } 50% { transform: scaleY(1); transform-origin: top; } 51% { transform-origin: bottom; } 100% { transform: scaleY(0); transform-origin: bottom; } }
+
+/* ---------- cards / grids ---------- */
+.card {
+  position: relative; padding: 28px; border-radius: var(--r); border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.015));
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  transition: border-color .3s, transform .3s;
+}
+.card:hover { border-color: var(--line-2); }
+.grid { display: grid; gap: 16px; }
+.g2 { grid-template-columns: repeat(2, 1fr); }
+.g3 { grid-template-columns: repeat(3, 1fr); }
+.g4 { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 900px) { .g3, .g4 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 620px) { .g2, .g3, .g4 { grid-template-columns: 1fr; } section { padding: 84px 0; } }
+
+/* why */
+.why .card .num { font-family: var(--serif); font-size: 56px; line-height: 1; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.why .card p { color: var(--muted); margin: 10px 0 0; font-size: 15.5px; }
+.tilt { transform-style: preserve-3d; will-change: transform; }
+
+/* pipeline */
+.pipe { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-top: 48px; counter-reset: s; }
+.pipe .st {
+  position: relative; padding: 20px 16px; border-radius: 14px; border: 1px solid var(--line);
+  background: rgba(16,12,22,.72); counter-increment: s; backdrop-filter: blur(10px);
+}
+.pipe .st::before { content: "0" counter(s); font: 11px var(--mono); color: var(--amber); }
+.pipe .st h3 { font-size: 16px; margin: 6px 0 6px; }
+.pipe .st p { margin: 0; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+.pipe .st::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; border-radius: 2px;
+  background: var(--grad); transform: scaleX(0); transform-origin: left; transition: transform .8s;
+  transition-delay: calc(var(--i) * 120ms);
+}
+.pipe.in .st::after { transform: scaleX(1); }
+@media (max-width: 900px) { .pipe { grid-template-columns: repeat(2, 1fr); } }
+
+/* arc demo */
+.arc { margin-top: 48px; padding: 28px; }
+.arc-head { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: baseline; justify-content: space-between; margin-bottom: 22px; }
+.arc-head .meta { font: 13px var(--mono); color: var(--muted); }
+.arc-head .meta b { color: var(--text); font-weight: 500; }
+.arc svg { width: 100%; height: auto; display: block; overflow: visible; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 18px; font: 12px var(--mono); color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; background: var(--c); }
+
+/* terminal */
+.term { border-radius: var(--r); border: 1px solid var(--line-2); background: rgba(10,8,14,.88); overflow: hidden; backdrop-filter: blur(12px); box-shadow: 0 40px 120px -40px rgba(255,94,98,.25); }
+.term-bar { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); font: 12px var(--mono); color: var(--dim); }
+.term-bar i { width: 11px; height: 11px; border-radius: 50%; background: #2a2433; }
+.term-bar i:nth-child(1) { background: #ff5f57; } .term-bar i:nth-child(2) { background: #febc2e; } .term-bar i:nth-child(3) { background: #28c840; }
+.term-bar span { margin-left: 10px; }
+.term pre { margin: 0; padding: 22px; font-size: 13px; line-height: 1.7; overflow-x: auto; color: #d9d2e0; }
+.t-a { color: var(--amber); } .t-d { color: var(--dim); } .t-h { color: var(--text); font-weight: 700; }
+.t-u { color: var(--user); } .t-de { color: var(--detected); } .t-e { color: var(--estimated); } .t-i { color: var(--inferred); }
+.t-bar { color: var(--coral); }
+
+/* table */
+.tbl { width: 100%; border-collapse: collapse; font-size: 15px; }
+.tbl-wrap { border-radius: var(--r); border: 1px solid var(--line); overflow: hidden; overflow-x: auto; background: rgba(16,12,22,.72); backdrop-filter: blur(12px); }
+.tbl th, .tbl td { text-align: left; padding: 14px 18px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.tbl th { font: 500 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); background: rgba(255,255,255,.02); }
+.tbl tr:last-child td { border-bottom: 0; }
+.tbl td:first-child { font-weight: 600; white-space: nowrap; }
+.tbl td:last-child { color: var(--muted); }
+.tbl code { font-size: 13px; }
+.tag { display: inline-block; font: 500 11.5px var(--mono); padding: 3px 9px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--c) 45%, transparent); color: var(--c); background: color-mix(in srgb, var(--c) 10%, transparent); white-space: nowrap; }
+@media (max-width: 620px) { .tbl td:first-child { white-space: normal; } }
+
+/* tabs */
+.tabs { margin-top: 40px; }
+.tablist { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px; border-radius: 14px; border: 1px solid var(--line); background: rgba(16,12,22,.72); width: fit-content; max-width: 100%; backdrop-filter: blur(10px); }
+.tablist button {
+  font: 500 14px var(--sans); color: var(--muted); background: none; border: 0; cursor: pointer;
+  padding: 9px 14px; border-radius: 10px; transition: color .2s, background .2s;
+}
+.tablist button[aria-selected="true"] { color: #120c05; background: var(--text); }
+.tablist button:hover:not([aria-selected="true"]) { color: var(--text); background: rgba(255,255,255,.06); }
+.tablist button:focus-visible, .btn:focus-visible, .copy:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.panel { margin-top: 16px; }
+.panel[hidden] { display: none; }
+.panel p { color: var(--muted); }
+
+.code { position: relative; border-radius: 14px; border: 1px solid var(--line); background: rgba(10,8,14,.9); margin: 14px 0; }
+.code pre { margin: 0; padding: 18px 56px 18px 20px; overflow-x: auto; font-size: 13.5px; line-height: 1.7; color: #e3dcea; }
+.code .c { color: var(--dim); } .code .k { color: var(--amber); } .code .s { color: var(--cyan); } .code .f { color: var(--violet); }
+.copy {
+  position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; display: grid; place-items: center;
+  border-radius: 9px; border: 1px solid var(--line); background: rgba(255,255,255,.04); color: var(--muted); cursor: pointer;
+  transition: color .2s, background .2s;
+}
+.copy:hover { color: var(--text); background: rgba(255,255,255,.1); }
+.copy svg { width: 15px; height: 15px; }
+.copy.ok { color: var(--cyan); }
+.oneliner .copy { position: static; flex: none; }
+
+.steps { counter-reset: n; display: grid; gap: 14px; margin-top: 18px; }
+.steps > div { display: grid; grid-template-columns: 40px 1fr; gap: 14px; align-items: start; }
+.steps > div::before { counter-increment: n; content: counter(n); width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--line-2); font: 600 13px var(--mono); color: var(--amber); }
+.steps h3 { font-size: 16px; margin-top: 4px; }
+.steps .code { margin: 8px 0 0; }
+.req { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.req span { font: 13px var(--mono); padding: 8px 14px; border-radius: 10px; border: 1px solid var(--line); background: rgba(16,12,22,.72); color: var(--muted); }
+.req b { color: var(--text); font-weight: 500; }
+
+/* cli */
+.cmds { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 40px; }
+.cmd { padding: 16px; border-radius: 14px; border: 1px solid var(--line); background: rgba(16,12,22,.72); backdrop-filter: blur(10px); transition: border-color .25s, transform .25s; }
+.cmd:hover { border-color: rgba(255,159,67,.45); transform: translateY(-3px); }
+.cmd code { font-size: 14px; color: var(--amber); font-weight: 500; }
+.cmd p { margin: 6px 0 0; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+@media (max-width: 900px) { .cmds { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 460px) { .cmds { grid-template-columns: 1fr; } }
+
+.mcp-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.mcp-tools code { font-size: 12.5px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: rgba(255,255,255,.03); color: #d9d2e0; }
+
+/* security */
+.sec .card h3 { display: flex; align-items: center; gap: 10px; }
+.sec .card h3 svg { width: 20px; height: 20px; color: var(--amber); flex: none; }
+.sec .card p { color: var(--muted); font-size: 15px; margin: 10px 0 0; }
+
+figure.proof { margin: 40px 0 0; padding: 14px; border-radius: var(--r); border: 1px solid var(--line); background: rgba(16,12,22,.8); }
+figure.proof img { width: 100%; height: auto; display: block; border-radius: 10px; background: #fff; }
+figure.proof figcaption { font-size: 14px; color: var(--muted); padding: 14px 6px 4px; }
+.stats { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 16px; }
+.stat { flex: 1 1 200px; padding: 18px 20px; border-radius: 14px; border: 1px solid var(--line); background: rgba(16,12,22,.72); }
+.stat b { display: block; font-family: var(--serif); font-weight: 400; font-size: 40px; line-height: 1.1; }
+.stat span { font-size: 13.5px; color: var(--muted); }
+
+/* docs */
+.docs a.card { text-decoration: none; display: block; }
+.docs a.card:hover { transform: translateY(-3px); border-color: rgba(255,159,67,.45); }
+.docs a.card p { color: var(--muted); font-size: 14.5px; margin: 8px 0 0; }
+.docs a.card .arr { position: absolute; top: 26px; right: 24px; color: var(--dim); transition: color .2s, transform .2s; }
+.docs a.card:hover .arr { color: var(--amber); transform: translate(3px, -3px); }
+
+.final { text-align: center; padding: 160px 0 120px; }
+.final h2 { font-size: clamp(48px, 8vw, 96px); }
+.final .cta { justify-content: center; margin-top: 30px; }
+footer { border-top: 1px solid var(--line); padding: 30px 0 40px; color: var(--dim); font-size: 14px; background: rgba(12,10,16,.85); }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 24px; justify-content: space-between; }
+footer a { color: var(--muted); text-decoration: none; }
+footer a:hover { color: var(--text); }
+
+.note { font-size: 14px; color: var(--muted); padding: 14px 18px; border-left: 2px solid var(--amber); background: rgba(255,159,67,.06); border-radius: 0 10px 10px 0; margin-top: 18px; }
+.note b { color: var(--text); }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .scrollhint::after { animation: none; }
+}
+</style>
+</head>
+<body>
+<div id="stage" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+
+<header>
+  <nav class="nav" aria-label="Primary">
+    <a class="brand" href="#top">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg" x1="0" x2="1"><stop offset="0" stop-color="#ffd166"/><stop offset=".5" stop-color="#ff9f43"/><stop offset="1" stop-color="#ff5e62"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="#1a1522"/><path d="M5 20h3l2-8 3 14 3-18 3 12 2-4h6" fill="none" stroke="url(#lg)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      MusicContext
+    </a>
+    <a class="l" href="#how">How it works</a>
+    <a class="l" href="#install">Install</a>
+    <a class="l" href="#cli">CLI</a>
+    <a class="l" href="#honest">Knows vs guesses</a>
+    <a class="l" href="#docs">Docs</a>
+    <a class="btn primary" href="https://github.com/AAGAM17/MusicContext" target="_blank" rel="noopener">
+      <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      GitHub
+    </a>
+  </nav>
+</header>
+
+<main id="top">
+  <!-- HERO -->
+  <section class="hero">
+    <div class="wrap">
+      <div class="pill reveal"><b>v0.1.0</b> Local-first · CLI · MCP · SDK · Agent Skill</div>
+      <h1 class="reveal">Give your agent<br>a <em>music director.</em></h1>
+      <p class="lead reveal">AI agents generate remarkable video, then pick a generic loop at the wrong tempo that peaks nowhere near the reveal. MusicContext works out what a video <i>is</i> and what music it <i>needs</i>, then finds or generates that music and mixes it in. It also tells you which of those conclusions it measured and which it guessed.</p>
+      <div class="flow reveal" aria-label="Pipeline">
+        <span>video</span><i>→</i><span>story</span><i>→</i><span>music direction</span><i>→</i><span>soundtrack</span><i>→</i><span>sync</span><i>→</i><span>final video</span>
+      </div>
+      <div class="cta reveal">
+        <a class="btn primary" href="#install">Install in one line</a>
+        <a class="btn" href="#how">See how it works</a>
+      </div>
+      <div class="oneliner reveal">
+        <span class="p">$</span>
+        <code id="one">pipx install "musiccontext[agent] @ git+https://github.com/AAGAM17/MusicContext" &amp;&amp; musiccontext init-agent</code>
+        <button class="copy" data-copy="#one" aria-label="Copy install command"></button>
+      </div>
+    </div>
+    <div class="scrollhint" aria-hidden="true">Scroll</div>
+  </section>
+
+  <!-- WHY -->
+  <section class="why" id="why">
+    <div class="wrap">
+      <span class="eyebrow reveal">Why this exists</span>
+      <h2 class="reveal">Music for an edit is about <em>timing</em>, not tags.</h2>
+      <p class="lead reveal">Ask for "cinematic music" and an agent picks something that sounds cinematic. That's a tagging decision. What actually makes an edit work is timing, and these are the timing decisions MusicContext makes:</p>
+      <div class="grid g4" style="margin-top:44px">
+        <div class="card tilt reveal"><div class="num">18.2s</div><h3>Land the hit</h3><p>The product appears. The music should land its biggest hit there, not 900 ms later.</p></div>
+        <div class="card tilt reveal"><div class="num">48%</div><h3>Respect the voice</h3><p>The narrator speaks for half the timeline. A dense lead melody will fight every word.</p></div>
+        <div class="card tilt reveal"><div class="num">2.0s</div><h3>Ride the cuts</h3><p>Cuts every 2 s. At 120 BPM each cut falls on a beat. At 103 BPM none of them do.</p></div>
+        <div class="card tilt reveal"><div class="num">24.0s</div><h3>Resolve the ending</h3><p>The video ends at 24 s, so the music has to resolve there instead of getting cut off mid-phrase.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW -->
+  <section id="how">
+    <div class="wrap">
+      <span class="eyebrow reveal">How it works</span>
+      <h2 class="reveal">Six stages, from <em>pixels to a mix.</em></h2>
+      <p class="lead reveal">The core engine doesn't know about any particular model, vendor or catalogue. Providers plug in behind interfaces, and every stage writes to a portable <code>.musicctx</code> artifact.</p>
+      <div class="pipe reveal">
+        <div class="st" style="--i:0"><h3>Analyze</h3><p>Scenes, cuts, motion, colour, speech, silence, energy.</p></div>
+        <div class="st" style="--i:1"><h3>Story</h3><p>Scene roles, the reveal, CTA and key moments on one timeline.</p></div>
+        <div class="st" style="--i:2"><h3>Direct</h3><p>Style, mood, tempo, arc, instrumentation, ducking.</p></div>
+        <div class="st" style="--i:3"><h3>Source</h3><p>Your library, search providers, or offline generation.</p></div>
+        <div class="st" style="--i:4"><h3>Select</h3><p>Nine-dimension scoring, with exclusions explained.</p></div>
+        <div class="st" style="--i:5"><h3>Sync</h3><p>Align, loop, fade, duck, and render with FFmpeg, then re-probe.</p></div>
+      </div>
+
+      <div class="card arc reveal">
+        <div class="arc-head">
+          <h3>A plan for a 24 s product demo</h3>
+          <div class="meta"><b>91 BPM</b> · minimal · confident, premium · instrumental · peak <b>11.0s</b> · duck <b>−12 dB</b></div>
+        </div>
+        <svg id="arcsvg" viewBox="0 0 1000 260" role="img" aria-label="Energy arc: build from 0 to 11 seconds, peak from 11 to 17 seconds, resolution to 24 seconds. Voiceover from 2 seconds with music ducked under it."></svg>
+        <div class="legend">
+          <span style="--c:var(--user)">[user] told to us</span>
+          <span style="--c:var(--detected)">[detected] measured</span>
+          <span style="--c:var(--estimated)">[estimated] heuristic</span>
+          <span style="--c:var(--inferred)">[inferred] guessed from pacing</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- OUTPUT -->
+  <section id="output">
+    <div class="wrap">
+      <span class="eyebrow reveal">Real output</span>
+      <h2 class="reveal">A plan you can <em>read and check.</em></h2>
+      <p class="lead reveal">Every key moment is tagged with where it came from, and the tags carry through to the JSON. That way an agent can pass the difference on to the user instead of sounding equally sure about everything.</p>
+      <div class="term reveal" style="margin-top:40px">
+        <div class="term-bar"><i></i><i></i><i></i><span>musiccontext plan demo.mp4 --marker 11.0=reveal --platform product-demo --vocals none</span></div>
+<pre><span class="t-h">Music direction</span>  <span class="t-d">(confidence 0.60)</span>
+  minimal · confident, premium, curious · instrumental
+  <span class="t-a">tempo</span>            91 BPM <span class="t-d">(80-102)</span>
+  <span class="t-a">energy</span>           <span class="t-bar">█████▁</span>             0.28
+  <span class="t-a">rhythm</span>           sparse · texture dry/spacious
+  <span class="t-a">instruments</span>      piano, soft_pads, subtle_percussion
+  <span class="t-a">avoid</span>            vocals, lead_vocal, busy_lead_melody, distorted_guitar
+
+<span class="t-h">Arc</span>
+     0.0-11.0   build        <span class="t-bar">█▆</span>           0.14  <span class="t-d">rising layers and rhythmic density leading to the payoff</span>
+    11.0-17.0   peak         <span class="t-bar">█████████</span>    0.74  <span class="t-d">full arrangement; the main hit lands exactly on the payoff</span>
+    17.0-24.0   resolution   <span class="t-bar">█▆</span>           0.14  <span class="t-d">ease off into a clear resolution / call to action</span>
+  <span class="t-a">peak</span>             11.0s · ending: resolve
+  <span class="t-a">ducking</span>          -12 dB under speech (bed -3 dB)
+
+<span class="t-h">Key moments</span>
+      2.0s  voiceover_start   duck      <span class="t-e">[estimated]</span> Speech begins; music should make space
+     11.0s  reveal            peak      <span class="t-u">[user]</span>      Supplied by the user/agent: reveal at 11.00s
+     17.0s  cta               resolve   <span class="t-i">[inferred]</span>  Closing section after the peak; possible call to action
+     17.0s  hard_cut          none      <span class="t-de">[detected]</span>  Hard cut (scene score 0.86)
+     24.0s  ending            resolve   <span class="t-de">[detected]</span>  End of video</pre>
+      </div>
+
+      <figure class="proof reveal">
+        <img src="demo-timeline.png" alt="The plan, the narration and ducking, and the measured energy of the generated track on a 24 s demo. The measured downbeat is 3 ms from the 11.0 s reveal." loading="lazy" width="1600" height="900">
+        <figcaption>The plan next to what actually came out. The generated track is measured with the same analyzer used for any other track.</figcaption>
+      </figure>
+      <div class="stats reveal">
+        <div class="stat"><b>90.8</b><span>BPM measured, 91.1 requested</span></div>
+        <div class="stat"><b>3 ms</b><span>from the 11.000 s reveal to the nearest measured downbeat</span></div>
+        <div class="stat"><b>0</b><span>bytes of telemetry. Nothing leaves your machine unless you choose a provider that needs to send it.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INSTALL -->
+  <section id="install">
+    <div class="wrap">
+      <span class="eyebrow reveal">Installation</span>
+      <h2 class="reveal">One line, and <em>every agent</em> picks it up.</h2>
+      <p class="lead reveal"><code>init-agent</code> installs the Skill into every coding agent it finds on your machine. It never overwrites anything without <code>--force</code>, supports <code>--dry-run</code>, and prints exactly what it changed.</p>
+      <div class="req reveal">
+        <span>Python <b>3.11+</b></span>
+        <span>FFmpeg <b>6+</b> (<b>ffmpeg</b> + <b>ffprobe</b> on PATH)</span>
+        <span>macOS · Linux · Windows</span>
+      </div>
+
+      <div class="tabs reveal" data-tabs>
+        <div class="tablist" role="tablist" aria-label="Install target">
+          <button role="tab" aria-selected="true" aria-controls="p-all" id="t-all">Every agent</button>
+          <button role="tab" aria-selected="false" aria-controls="p-claude" id="t-claude" tabindex="-1">Claude Code</button>
+          <button role="tab" aria-selected="false" aria-controls="p-codex" id="t-codex" tabindex="-1">Codex</button>
+          <button role="tab" aria-selected="false" aria-controls="p-cursor" id="t-cursor" tabindex="-1">Cursor · Copilot · Gemini</button>
+          <button role="tab" aria-selected="false" aria-controls="p-skills" id="t-skills" tabindex="-1">npx skills</button>
+          <button role="tab" aria-selected="false" aria-controls="p-src" id="t-src" tabindex="-1">From source</button>
+        </div>
+
+        <div class="panel" role="tabpanel" id="p-all" aria-labelledby="t-all">
+          <div class="steps">
+            <div><div><h3>Install the CLI and the Skill</h3>
+              <div class="code"><pre><span class="k">pipx</span> install <span class="s">"musiccontext[agent] @ git+https://github.com/AAGAM17/MusicContext"</span> \
+  &amp;&amp; <span class="k">musiccontext</span> init-agent</pre></div></div></div>
+            <div><div><h3>Optional: wire the MCP server too, or target one agent</h3>
+              <div class="code"><pre><span class="k">musiccontext</span> init-agent --mcp            <span class="c"># also add the MCP server</span>
+<span class="k">musiccontext</span> init-agent --agent cursor   <span class="c"># just one agent</span>
+<span class="k">musiccontext</span> init-agent --all            <span class="c"># include agents not detected yet</span>
+<span class="k">musiccontext</span> init-agent --dry-run        <span class="c"># show what would change</span></pre></div></div></div>
+            <div><div><h3>Verify</h3>
+              <div class="code"><pre><span class="k">musiccontext</span> doctor   <span class="c"># FFmpeg, storage, providers, agent integrations</span></pre></div>
+              <p>Restart your agent, then type <code>/musiccontext</code> or just ask for music. The agent picks the Skill up on its own.</p></div></div>
+          </div>
+        </div>
+
+        <div class="panel" role="tabpanel" id="p-claude" aria-labelledby="t-claude" hidden>
+          <div class="steps">
+            <div><div><h3>Install the Skill and add the MCP server to <code>./.mcp.json</code></h3>
+              <div class="code"><pre><span class="k">musiccontext</span> init-agent --mcp</pre></div></div></div>
+            <div><div><h3>Or use the plugin marketplace</h3>
+              <div class="code"><pre>/plugin marketplace add AAGAM17/MusicContext
+/plugin install musiccontext@musiccontext</pre></div></div></div>
+            <div><div><h3>Use it</h3>
+              <div class="code"><pre>/musiccontext
+Analyze demo.mp4 and tell me what soundtrack it needs.</pre></div>
+              <p>Plain requests work too, like "make this video feel cinematic", "find music that works under the narration" or "make the music peak at the product reveal".</p></div></div>
+          </div>
+        </div>
+
+        <div class="panel" role="tabpanel" id="p-codex" aria-labelledby="t-codex" hidden>
+          <div class="steps">
+            <div><div><h3>Add the MCP server (supported route)</h3>
+              <div class="code"><pre><span class="k">codex</span> mcp add musiccontext -- musiccontext mcp</pre></div></div></div>
+            <div><div><h3>Install the Skill</h3>
+              <div class="code"><pre><span class="k">musiccontext</span> init-agent --codex</pre></div></div></div>
+          </div>
+          <div class="note"><b>Unverified.</b> A <code>.codex-plugin/plugin.json</code> manifest ships with the repo, but Skill discovery couldn't be tested against the Codex CLI used during development. Use the MCP route for now. Details are in <a href="https://github.com/AAGAM17/MusicContext/blob/main/docs/agents/codex.md">docs/agents/codex.md</a>.</div>
+        </div>
+
+        <div class="panel" role="tabpanel" id="p-cursor" aria-labelledby="t-cursor" hidden>
+          <div class="steps">
+            <div><div><h3>Pick the agent</h3>
+              <div class="code"><pre><span class="k">musiccontext</span> init-agent --agent cursor
+<span class="k">musiccontext</span> init-agent --agent copilot    <span class="c"># VS Code Copilot</span>
+<span class="k">musiccontext</span> init-agent --agent gemini     <span class="c"># Gemini CLI</span></pre></div></div></div>
+            <div><div><h3>Add <code>--mcp</code> to register the MCP server as well</h3>
+              <div class="code"><pre><span class="k">musiccontext</span> init-agent --agent cursor --mcp</pre></div>
+              <p>Run <code>musiccontext init-agent --help</code> to see the exact agent names your version supports.</p></div></div>
+          </div>
+        </div>
+
+        <div class="panel" role="tabpanel" id="p-skills" aria-labelledby="t-skills" hidden>
+          <p>Already have the CLI? Any <a href="https://agentskills.io" target="_blank" rel="noopener">Agent Skills</a> installer works against this repo:</p>
+          <div class="code"><pre><span class="k">npx</span> skills add AAGAM17/MusicContext</pre></div>
+        </div>
+
+        <div class="panel" role="tabpanel" id="p-src" aria-labelledby="t-src" hidden>
+          <div class="code"><pre><span class="k">git</span> clone https://github.com/AAGAM17/MusicContext &amp;&amp; <span class="k">cd</span> MusicContext
+<span class="k">make</span> install &amp;&amp; <span class="k">make</span> fixtures &amp;&amp; <span class="k">make</span> test</pre></div>
+          <p>Test media is synthesized by <code>scripts/make_fixtures.py</code>. It's deterministic, and there are no binary assets in the repo.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- QUICKSTART -->
+  <section id="quickstart">
+    <div class="wrap">
+      <span class="eyebrow reveal">Quickstart</span>
+      <h2 class="reveal">From <em>demo.mp4</em> to a scored cut.</h2>
+      <div class="grid g2" style="margin-top:40px">
+        <div class="reveal">
+          <h3>The core loop</h3>
+          <div class="code"><pre><span class="k">musiccontext</span> doctor
+<span class="k">musiccontext</span> analyze demo.mp4     <span class="c"># scenes, speech, energy, story</span>
+<span class="k">musiccontext</span> plan demo.mp4        <span class="c"># direction → .musicctx</span>
+<span class="k">musiccontext</span> recommend demo.mp4   <span class="c"># scored, explained</span>
+<span class="k">musiccontext</span> sync --video demo.mp4 \
+  --music track.mp3 --output final.mp4</pre></div>
+        </div>
+        <div class="reveal">
+          <h3>Tell it what you know</h3>
+          <div class="code"><pre><span class="k">musiccontext</span> plan demo.mp4 \
+  --marker <span class="s">18.2=reveal</span> \
+  --platform product-demo \
+  --style cinematic --mood premium \
+  --vocals none --commercial-use</pre></div>
+          <p style="color:var(--muted);font-size:15px">Inference is a heuristic. A marker you supply is a fact.</p>
+        </div>
+        <div class="reveal">
+          <h3>No music yet? Fully offline</h3>
+          <div class="code"><pre><span class="k">musiccontext</span> library scan ~/Music   <span class="c"># index your files</span>
+<span class="k">musiccontext</span> generate demo.mp4 --seed 7</pre></div>
+        </div>
+        <div class="reveal">
+          <h3>Python SDK</h3>
+          <div class="code"><pre><span class="k">from</span> musiccontext <span class="k">import</span> MusicContext
+
+ctx = MusicContext()
+plan = ctx.create_music_plan(ctx.analyze(<span class="s">"demo.mp4"</span>))
+<span class="f">print</span>(plan.music_direction.brief)
+ctx.sync(video=<span class="s">"demo.mp4"</span>, music=<span class="s">"track.mp3"</span>, output=<span class="s">"final.mp4"</span>)</pre></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CLI -->
+  <section id="cli">
+    <div class="wrap">
+      <span class="eyebrow reveal">Surface</span>
+      <h2 class="reveal">One engine, <em>four ways in.</em></h2>
+      <p class="lead reveal">The CLI, the MCP server, the Python SDK and the Agent Skill all share the same schemas and providers. Add <code>--json</code> to any command for bounded, machine-readable output.</p>
+      <div class="cmds reveal">
+        <div class="cmd"><code>inspect</code><p>Container metadata only, no analysis.</p></div>
+        <div class="cmd"><code>analyze</code><p>Scenes, cuts, motion, speech, energy curve, story model.</p></div>
+        <div class="cmd"><code>plan</code><p>The Music Direction Plan. Writes a <code>.musicctx</code> artifact.</p></div>
+        <div class="cmd"><code>recommend</code><p>Scores real candidates on nine dimensions, with reasons.</p></div>
+        <div class="cmd"><code>search</code><p>Queries providers and your library.</p></div>
+        <div class="cmd"><code>generate</code><p>Synthesizes a track that follows the plan.</p></div>
+        <div class="cmd"><code>sync</code><p>Trim, loop, fade, duck, align, then render.</p></div>
+        <div class="cmd"><code>render</code><p>Plan, pick or generate, and sync in one step.</p></div>
+        <div class="cmd"><code>export</code><p>Prints a stored artifact (summary or <code>--full</code>).</p></div>
+        <div class="cmd"><code>library</code><p><code>add</code>, <code>scan</code>, <code>search</code>, <code>list</code>, <code>remove</code>, <code>stats</code>.</p></div>
+        <div class="cmd"><code>providers</code><p>What's available, what each one needs, and what leaves your machine.</p></div>
+        <div class="cmd"><code>doctor</code><p>Diagnoses the install.</p></div>
+        <div class="cmd"><code>config</code><p><code>show</code> (secrets redacted), <code>set</code>, <code>path</code>.</p></div>
+        <div class="cmd"><code>profile</code><p>Brand and creative profiles that bias the direction.</p></div>
+        <div class="cmd"><code>init-agent</code><p>Installs the Skill (and optionally MCP) into every agent.</p></div>
+        <div class="cmd"><code>mcp</code><p>Runs the MCP server (JSON-RPC 2.0 over stdio).</p></div>
+      </div>
+
+      <div class="grid g2" style="margin-top:28px">
+        <div class="card reveal">
+          <h3>MCP server · 10 tools</h3>
+          <p style="color:var(--muted);font-size:15px;margin:8px 0 0">Stricter than the CLI: strict input schemas, a filesystem sandbox (<code>MUSICCONTEXT_ROOTS</code>), size-bounded output and sanitized media text.</p>
+          <div class="mcp-tools">
+            <code>inspect</code><code>analyze</code><code>plan</code><code>recommend</code><code>search</code><code>library_search</code><code>generate</code><code>sync</code><code>providers</code><code>get_artifact</code>
+          </div>
+        </div>
+        <div class="card reveal">
+          <h3>Providers · plug in, don't fork</h3>
+          <p style="color:var(--muted);font-size:15px;margin:8px 0 0">There are three kinds: library, search and generation. Each one reports whether it's available, which env var it needs, and whether it would send media off your machine. The local library and offline <code>procedural</code> generation ship today. Third parties register through the <code>musiccontext.providers</code> entry point.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HONEST -->
+  <section id="honest">
+    <div class="wrap">
+      <span class="eyebrow reveal">Provenance</span>
+      <h2 class="reveal">What it <em>knows</em> vs. what it <em>guesses.</em></h2>
+      <p class="lead reveal">Every temporal value carries a <code>source</code>, a <code>confidence</code> and a <code>provenance</code>. When MusicContext doesn't know something, it says "unknown" and gives the reason rather than making up a number.</p>
+      <div class="tbl-wrap reveal" style="margin-top:40px">
+        <table class="tbl">
+          <thead><tr><th>Value</th><th>Basis</th><th>Honest limits</th></tr></thead>
+          <tbody>
+            <tr><td>Duration, resolution, fps</td><td><span class="tag" style="--c:var(--detected)">detected</span></td><td>From the container.</td></tr>
+            <tr><td>Cuts / scene boundaries</td><td><span class="tag" style="--c:var(--detected)">detected</span></td><td>FFmpeg scene scores. Soft dissolves are approximate.</td></tr>
+            <tr><td>Motion, brightness, colour</td><td><span class="tag" style="--c:var(--estimated)">estimated</span></td><td>64×36 frame differencing, with cut spikes removed.</td></tr>
+            <tr><td>Speech intervals</td><td><span class="tag" style="--c:var(--detected)">detected</span> / <span class="tag" style="--c:var(--estimated)">estimated</span></td><td>Detected when you give it a transcript or subtitles. Otherwise a heuristic VAD estimates it, capped at 0.6 confidence.</td></tr>
+            <tr><td>Scene roles, reveal, CTA</td><td><span class="tag" style="--c:var(--inferred)">inferred</span></td><td>Based on pacing and energy only. There's no vision model and no OCR, so use <code>--marker</code> for moments that matter.</td></tr>
+            <tr><td>Tempo, beats, downbeats, key</td><td><span class="tag" style="--c:var(--estimated)">estimated</span></td><td>Classical DSP. Half/double-time ambiguity is reported, not hidden. Downbeats assume 4/4.</td></tr>
+            <tr><td>Loudness (LUFS)</td><td><span class="tag" style="--c:var(--detected)">detected</span></td><td>EBU R128 via FFmpeg.</td></tr>
+            <tr><td>Vocals present</td><td><span class="tag" style="--c:var(--user)">tags / sidecar</span></td><td>Never guessed from the audio.</td></tr>
+            <tr><td>License status</td><td><span class="tag" style="--c:var(--user)">verified</span></td><td>Only from a <code>.license.json</code> sidecar or a provider API. A copyright tag in a file counts as an unverified claim.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECURITY -->
+  <section class="sec" id="security">
+    <div class="wrap">
+      <span class="eyebrow reveal">Security &amp; privacy</span>
+      <h2 class="reveal">Media is <em>untrusted data.</em></h2>
+      <div class="grid g3" style="margin-top:40px">
+        <div class="card reveal"><h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg>No telemetry, ever</h3><p>Local-first. Providers that would send media off your machine are flagged, and <code>--local-only</code> turns them off.</p></div>
+        <div class="card reveal"><h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h7"/></svg>Sanitized inputs</h3><p>Tags, subtitles, transcripts and provider responses are bounded and never executed. Text that looks like an injection attempt raises a warning.</p></div>
+        <div class="card reveal"><h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 17l6-6-6-6M12 19h8"/></svg>No shell</h3><p>FFmpeg is always invoked with argument lists. Paths are sandboxed, and traversal, NUL bytes and escaping symlinks are rejected.</p></div>
+        <div class="card reveal"><h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18"/></svg>Remote off by default</h3><p>When remote URLs are enabled: HTTPS only, DNS pinned, private addresses refused, and every redirect re-validated.</p></div>
+        <div class="card reveal"><h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>Secrets redacted</h3><p>Keys come only from <code>MUSICCONTEXT_&lt;PROVIDER&gt;_API_KEY</code>. They're never written, logged or printed.</p></div>
+        <div class="card reveal"><h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>Tests that bite</h3><p>Remove any defence and a test fails. Run them with <code>make test-security</code>.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DOCS -->
+  <section class="docs" id="docs">
+    <div class="wrap">
+      <span class="eyebrow reveal">Documentation</span>
+      <h2 class="reveal">Go <em>deeper.</em></h2>
+      <div class="grid g3" style="margin-top:40px">
+        <a class="card reveal" href="https://github.com/AAGAM17/MusicContext/blob/main/docs/architecture/pipeline.md"><span class="arr">↗</span><h3>Architecture</h3><p>The pipeline and the data model.</p></a>
+        <a class="card reveal" href="https://github.com/AAGAM17/MusicContext/blob/main/docs/agents/claude-code.md"><span class="arr">↗</span><h3>Agents</h3><p>Claude Code, Codex status and MCP.</p></a>
+        <a class="card reveal" href="https://github.com/AAGAM17/MusicContext/blob/main/docs/providers/writing-a-provider.md"><span class="arr">↗</span><h3>Providers</h3><p>Using providers and writing your own.</p></a>
+        <a class="card reveal" href="https://github.com/AAGAM17/MusicContext/blob/main/docs/workflows/README.md"><span class="arr">↗</span><h3>Workflows</h3><p>Worked end-to-end scenarios.</p></a>
+        <a class="card reveal" href="https://github.com/AAGAM17/MusicContext/tree/main/skills/musiccontext"><span class="arr">↗</span><h3>The Skill</h3><p>The Agent Skill itself, with its references.</p></a>
+        <a class="card reveal" href="https://github.com/AAGAM17/MusicContext/blob/main/ROADMAP.md"><span class="arr">↗</span><h3>Roadmap</h3><p>What's next, plus the changelog.</p></a>
+      </div>
+      <p class="note reveal"><b>Boundaries.</b> MusicContext isn't a video editor, a DAW, a music model, or a replacement for a composer. Its job is to decide what music a video needs and to place it correctly.</p>
+    </div>
+  </section>
+
+  <section class="final">
+    <div class="wrap">
+      <h2 class="reveal">Make the music<br><em>land on the cut.</em></h2>
+      <div class="cta reveal">
+        <a class="btn primary" href="#install">Install MusicContext</a>
+        <a class="btn" href="https://github.com/AAGAM17/MusicContext" target="_blank" rel="noopener">Star on GitHub</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>MusicContext · Apache-2.0 · v0.1.0</span>
+    <span><a href="https://github.com/AAGAM17/MusicContext">GitHub</a> · <a href="https://github.com/AAGAM17/MusicContext/blob/main/SECURITY.md">Security</a> · <a href="https://github.com/AAGAM17/MusicContext/blob/main/CONTRIBUTING.md">Contributing</a> · <a href="https://github.com/AAGAM17/MusicContext/blob/main/CHANGELOG.md">Changelog</a></span>
+  </div>
+</footer>
+
+<script>
+// Copy buttons
+const ICON_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>';
+const ICON_OK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l5 5L20 7"/></svg>';
+document.querySelectorAll('.code').forEach(c => {
+  const b = document.createElement('button');
+  b.className = 'copy'; b.setAttribute('aria-label', 'Copy code');
+  c.appendChild(b);
+});
+document.querySelectorAll('.copy').forEach(b => {
+  b.innerHTML = ICON_COPY;
+  b.addEventListener('click', async () => {
+    const src = b.dataset.copy ? document.querySelector(b.dataset.copy) : b.parentElement.querySelector('pre');
+    try { await navigator.clipboard.writeText(src.innerText.trim()); b.innerHTML = ICON_OK; b.classList.add('ok'); }
+    catch { /* clipboard blocked: leave the text selectable */ }
+    setTimeout(() => { b.innerHTML = ICON_COPY; b.classList.remove('ok'); }, 1600);
+  });
+});
+
+// Tabs (keyboard: arrows)
+document.querySelectorAll('[data-tabs]').forEach(root => {
+  const tabs = [...root.querySelectorAll('[role=tab]')];
+  const select = t => {
+    tabs.forEach(x => {
+      const on = x === t;
+      x.setAttribute('aria-selected', on); x.tabIndex = on ? 0 : -1;
+      document.getElementById(x.getAttribute('aria-controls')).hidden = !on;
+    });
+    t.focus();
+  };
+  tabs.forEach((t, i) => {
+    t.addEventListener('click', () => select(t));
+    t.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight') select(tabs[(i + 1) % tabs.length]);
+      if (e.key === 'ArrowLeft') select(tabs[(i - 1 + tabs.length) % tabs.length]);
+    });
+  });
+});
+
+// Scroll reveals
+const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: .12 });
+document.querySelectorAll('.reveal').forEach((el, i) => { el.style.transitionDelay = (i % 4) * 70 + 'ms'; io.observe(el); });
+
+// Card tilt
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (!reduce && matchMedia('(pointer: fine)').matches) {
+  document.querySelectorAll('.tilt').forEach(c => {
+    c.addEventListener('pointermove', e => {
+      const r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
+      c.style.transform = `perspective(700px) rotateY(${x * 10}deg) rotateX(${-y * 10}deg) translateZ(6px)`;
+    });
+    c.addEventListener('pointerleave', () => c.style.transform = '');
+  });
+}
+
+// Arc diagram (SVG) — energy from the real demo plan
+(() => {
+  const svg = document.getElementById('arcsvg'), W = 1000, H = 260, T = 24, pad = 30, top = 20, base = 200;
+  const X = t => pad + (t / T) * (W - pad * 2);
+  const E = t => t < 11 ? .08 + .14 * Math.pow(t / 11, 2.2) * 3.2 * .5 : t < 17 ? .74 - .08 * ((t - 11) / 6) : .66 * Math.pow(1 - (t - 17) / 7, 1.6) + .06;
+  const Y = e => base - e * (base - top) * 1.15;
+  let d = `M${X(0)},${base}`;
+  for (let t = 0; t <= T; t += .1) d += ` L${X(t).toFixed(1)},${Y(E(t)).toFixed(1)}`;
+  d += ` L${X(T)},${base} Z`;
+  const ns = 'http://www.w3.org/2000/svg';
+  const el = (n, a) => { const e = document.createElementNS(ns, n); for (const k in a) e.setAttribute(k, a[k]); svg.appendChild(e); return e; };
+  const defs = el('defs', {});
+  defs.innerHTML = '<linearGradient id="ag" x1="0" x2="1"><stop offset="0" stop-color="#ffd166"/><stop offset=".46" stop-color="#ff9f43"/><stop offset=".6" stop-color="#ff5e62"/><stop offset="1" stop-color="#c86bfa"/></linearGradient><linearGradient id="af" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff7a59" stop-opacity=".45"/><stop offset="1" stop-color="#ff7a59" stop-opacity="0"/></linearGradient>';
+  // sections
+  [[0, 11, 'build'], [11, 17, 'peak'], [17, 24, 'resolution']].forEach(([a, b, n], i) => {
+    el('rect', { x: X(a), y: top - 10, width: X(b) - X(a), height: base - top + 10, fill: i === 1 ? 'rgba(255,94,98,.07)' : 'rgba(255,255,255,.015)' });
+    const t = el('text', { x: X(a) + 10, y: top + 6, fill: '#a39cab', 'font-family': 'JetBrains Mono', 'font-size': 12 }); t.textContent = n.toUpperCase();
+  });
+  // voiceover / ducking band
+  el('rect', { x: X(2), y: base + 10, width: X(22) - X(2), height: 8, rx: 4, fill: 'rgba(167,139,250,.35)' });
+  const vo = el('text', { x: X(2), y: base + 36, fill: '#a78bfa', 'font-family': 'JetBrains Mono', 'font-size': 11 }); vo.textContent = 'voiceover · music ducked −12 dB';
+  // energy
+  el('path', { d, fill: 'url(#af)' });
+  const line = el('path', { d: d.replace(/ L[\d.]+,200 Z$/, '').replace(/^M[\d.]+,200 L/, 'M'), fill: 'none', stroke: 'url(#ag)', 'stroke-width': 3, 'stroke-linecap': 'round' });
+  const len = line.getTotalLength(); line.style.strokeDasharray = len; line.style.strokeDashoffset = len;
+  // markers
+  [[11, 'reveal', '#ffd166'], [17, 'cta / cut', '#ff8fab'], [24, 'end', '#5eead4']].forEach(([t, n, c]) => {
+    el('line', { x1: X(t), x2: X(t), y1: top - 10, y2: base, stroke: c, 'stroke-dasharray': '3 4', 'stroke-width': 1.2 });
+    el('circle', { cx: X(t), cy: Y(E(Math.min(t, 23.9))), r: 5, fill: c });
+    const tx = el('text', { x: X(t) - 6, y: top - 14, fill: c, 'font-family': 'JetBrains Mono', 'font-size': 11, 'text-anchor': 'end' }); tx.textContent = `${n} ${t.toFixed(1)}s`;
+  });
+  // axis
+  for (let t = 0; t <= T; t += 4) { const a = el('text', { x: X(t), y: H - 2, fill: '#6f6878', 'font-family': 'JetBrains Mono', 'font-size': 11, 'text-anchor': 'middle' }); a.textContent = t + 's'; }
+  const draw = () => { line.style.transition = reduce ? 'none' : 'stroke-dashoffset 2.4s cubic-bezier(.5,0,.2,1)'; line.style.strokeDashoffset = 0; };
+  new IntersectionObserver((es, o) => es.forEach(e => { if (e.isIntersecting) { draw(); o.disconnect(); } }), { threshold: .4 }).observe(svg);
+})();
+</script>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+const host = document.getElementById('stage');
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' }); }
+catch { host.remove(); throw new Error('WebGL unavailable'); }
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.setClearColor(0x0c0a10, 1);
+host.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x0c0a10, 0.042);
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 200);
+
+// --- Sound terrain: a field of points whose height follows the musical arc ---
+// X = time (build → peak at the reveal → resolution), Z = frequency band.
+const COLS = 220, ROWS = 70, SX = 44, SZ = 22;
+const count = COLS * ROWS;
+const pos = new Float32Array(count * 3), base = new Float32Array(count * 2);
+for (let i = 0, k = 0; i < COLS; i++) for (let j = 0; j < ROWS; j++, k++) {
+  const u = i / (COLS - 1), v = j / (ROWS - 1);
+  base[k * 2] = u; base[k * 2 + 1] = v;
+  pos[k * 3] = (u - .5) * SX; pos[k * 3 + 2] = (v - .5) * SZ;
+}
+const geo = new THREE.BufferGeometry();
+geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+geo.setAttribute('uv2', new THREE.BufferAttribute(base, 2));
+
+const mat = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  uniforms: { uTime: { value: 0 }, uPeak: { value: 11 / 24 }, uScroll: { value: 0 }, uPx: { value: renderer.getPixelRatio() } },
+  vertexShader: `
+    attribute vec2 uv2; uniform float uTime, uPeak, uScroll, uPx; varying float vH; varying float vU; varying float vFade;
+    float arc(float u){
+      float b = smoothstep(0.0, uPeak, u) * 0.55;
+      float p = exp(-pow((u - uPeak - 0.08) / 0.11, 2.0)) * 1.0;
+      float r = (1.0 - smoothstep(uPeak + 0.2, 1.0, u)) * 0.25;
+      return 0.12 + max(b, max(p, r * step(uPeak, u)));
+    }
+    void main(){
+      float u = uv2.x, v = uv2.y;
+      float e = arc(u);
+      float band = 1.0 - abs(v - 0.5) * 1.6;
+      float t = uTime;
+      float w = sin(u * 38.0 - t * 2.2 + v * 6.0) * 0.5 + sin(v * 22.0 + t * 1.3 + u * 9.0) * 0.35 + sin((u + v) * 64.0 - t * 3.1) * 0.15;
+      float beat = pow(max(0.0, sin(t * 3.14159 * 1.517)), 12.0) * smoothstep(uPeak - 0.04, uPeak + 0.02, u) * (1.0 - smoothstep(uPeak + 0.25, uPeak + 0.4, u));
+      float h = e * (2.4 + w * 1.2) * max(band, 0.08) + beat * 1.4 * band;
+      vec3 p = position; p.y = h - 2.2;
+      vH = h / 4.0; vU = u; vFade = band;
+      vec4 mv = modelViewMatrix * vec4(p, 1.0);
+      gl_Position = projectionMatrix * mv;
+      gl_PointSize = (1.4 + h * 0.9) * uPx * (22.0 / -mv.z);
+    }`,
+  fragmentShader: `
+    varying float vH; varying float vU; varying float vFade;
+    void main(){
+      vec2 c = gl_PointCoord - 0.5; float d = length(c); if (d > 0.5) discard;
+      vec3 a = vec3(1.0, 0.82, 0.40), b = vec3(1.0, 0.62, 0.26), r = vec3(1.0, 0.37, 0.38), v = vec3(0.78, 0.42, 0.98);
+      vec3 col = mix(a, b, smoothstep(0.0, 0.35, vU));
+      col = mix(col, r, smoothstep(0.35, 0.55, vU));
+      col = mix(col, v, smoothstep(0.6, 1.0, vU));
+      col = mix(vec3(0.25, 0.2, 0.32), col, clamp(vH * 1.6 + 0.15, 0.0, 1.0));
+      float alpha = (1.0 - d * 2.0) * (0.35 + vH * 0.9) * (0.35 + vFade * 0.65);
+      gl_FragColor = vec4(col, alpha);
+    }`
+});
+const field = new THREE.Points(geo, mat);
+scene.add(field);
+
+// The reveal marker: a glowing vertical plane where the music peaks
+const markerMat = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  uniforms: { uTime: { value: 0 } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: `varying vec2 vUv; uniform float uTime;
+    void main(){ float x = 1.0 - abs(vUv.x - 0.5) * 2.0; float a = pow(x, 6.0) * (1.0 - vUv.y) * (0.55 + 0.25 * sin(uTime * 4.77));
+      gl_FragColor = vec4(1.0, 0.82, 0.4, a * 0.6); }`
+});
+const marker = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 9), markerMat);
+marker.position.set((11 / 24 + .08 - .5) * SX, 2.3, 0);
+marker.rotation.y = Math.PI / 2;
+scene.add(marker);
+
+// Floating "notes": slow particles drifting upward
+const N = 500, dust = new Float32Array(N * 3);
+for (let i = 0; i < N; i++) { dust[i * 3] = (Math.random() - .5) * 60; dust[i * 3 + 1] = Math.random() * 20 - 4; dust[i * 3 + 2] = (Math.random() - .5) * 40; }
+const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(dust, 3));
+const dots = new THREE.Points(dg, new THREE.PointsMaterial({ color: 0xffc58a, size: .06, transparent: true, opacity: .55, depthWrite: false, blending: THREE.AdditiveBlending }));
+scene.add(dots);
+
+// Camera path driven by scroll: sweep from build, over the peak, into resolution
+let scroll = 0, sTarget = 0, mx = 0, my = 0, tmx = 0, tmy = 0;
+const onScroll = () => { const m = document.documentElement.scrollHeight - innerHeight; sTarget = m > 0 ? scrollY / m : 0; };
+addEventListener('scroll', onScroll, { passive: true }); onScroll();
+addEventListener('pointermove', e => { tmx = e.clientX / innerWidth - .5; tmy = e.clientY / innerHeight - .5; }, { passive: true });
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+
+const clock = new THREE.Clock();
+let visible = true;
+document.addEventListener('visibilitychange', () => { visible = !document.hidden; });
+function frame() {
+  const t = reduce ? 4 : clock.getElapsedTime();
+  scroll += (sTarget - scroll) * .06; mx += (tmx - mx) * .05; my += (tmy - my) * .05;
+  mat.uniforms.uTime.value = t; markerMat.uniforms.uTime.value = t;
+  const s = scroll;
+  const narrow = innerWidth < 700 ? 1.35 : 1;
+  camera.position.set(-14 + s * 28 + mx * 3, (7.5 - s * 3 + my * -1.5), (15 - Math.sin(s * Math.PI) * 4) * narrow);
+  camera.lookAt(-4 + s * 14, 0, 0);
+  field.rotation.y = Math.sin(t * .05) * .04;
+  const dp = dg.attributes.position.array;
+  if (!reduce) { for (let i = 1; i < dp.length; i += 3) { dp[i] += .006; if (dp[i] > 16) dp[i] = -4; } dg.attributes.position.needsUpdate = true; }
+  renderer.render(scene, camera);
+  if (!reduce && visible) requestAnimationFrame(frame);
+  else if (!reduce) setTimeout(() => requestAnimationFrame(frame), 250);
+}
+frame();
+if (reduce) addEventListener('scroll', () => requestAnimationFrame(frame), { passive: true });
+</script>
+</body>
+</html>
